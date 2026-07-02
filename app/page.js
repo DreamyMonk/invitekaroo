@@ -6,6 +6,7 @@ import AuthGate from "@/components/AuthGate";
 import Overview from "@/components/views/Overview";
 import Schedule from "@/components/views/Schedule";
 import Community from "@/components/views/Community";
+import Editions from "@/components/views/Editions";
 import Analytics from "@/components/views/Analytics";
 import Settings from "@/components/views/Settings";
 import Collection from "@/components/views/Collection";
@@ -15,6 +16,7 @@ const NAV = [
   { id: "overview", label: "Overview", ic: "grid" },
   { id: "schedule", label: "Schedule", ic: "cal" },
   { id: "community", label: "Community Profile", ic: "flower" },
+  { id: "editions", label: "Editions", ic: "layers" },
   { sec: "People" },
   { id: "subscribers", label: "Subscribers", ic: "users" },
   { id: "attendance", label: "Attendance & QR", ic: "qr" },
@@ -59,6 +61,7 @@ export default function Page() {
       case "overview": return <Overview community={community} go={setView} />;
       case "schedule": return <Schedule community={community} toast={toast} />;
       case "community": return <Community community={community} toast={toast} onSaved={reloadCommunity} />;
+      case "editions": return <Editions community={community} toast={toast} onSaved={reloadCommunity} />;
       case "analytics": return <Analytics community={community} />;
       case "settings": return <Settings user={user} host={host} community={community} />;
       case "rsvp": return <Collection community={community} name="rsvps" toast={toast} />;
