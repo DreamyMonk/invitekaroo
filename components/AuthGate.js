@@ -5,6 +5,7 @@ import Icon from "./Icon";
 
 export default function AuthGate() {
   const [step, setStep] = useState("email"); // 'email' | 'otp'
+  const [mode, setMode] = useState("signin"); // 'signin' | 'signup' (cosmetic)
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
@@ -44,10 +45,17 @@ export default function AuthGate() {
         <div className="card">
           {step === "email" ? (
             <form onSubmit={send}>
-              <div className="h2" style={{ marginBottom: 4 }}>Sign in</div>
+              <div className="tabs">
+                <div className={`tab ${mode === "signin" ? "on" : ""}`} onClick={() => setMode("signin")}>Sign In</div>
+                <div className={`tab ${mode === "signup" ? "on" : ""}`} onClick={() => setMode("signup")}>Create Account</div>
+              </div>
               <p className="muted" style={{ marginBottom: 8 }}>We'll email you a one-time code.</p>
-              <label className="label">Your name <span style={{ color: "var(--ink4)" }}>(new hosts)</span></label>
-              <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Mahesh Ranka" />
+              {mode === "signup" && (
+                <>
+                  <label className="label">Your name</label>
+                  <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Mahesh Ranka" />
+                </>
+              )}
               <label className="label">Email</label>
               <input className="input" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
               {err && <div className="err">{err}</div>}
