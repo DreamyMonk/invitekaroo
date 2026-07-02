@@ -42,11 +42,18 @@ export default function Page() {
 
   useEffect(() => watchAuth(async (u) => {
     setUser(u || null);
-    if (u) {
-      const [h, c] = await Promise.all([getHost(u.uid), getMyCommunity(u.uid)]);
-      setHost(h); setCommunity(c);
-    } else { setHost(null); setCommunity(null); }
-    setReady(true);
+    try {
+      if (u) {
+        // .catch on each so one failing read never blocks the app on "Loading…"
+        const [h, c] = await Promise.all([
+          getHost(u.uid).catch(() => null),
+          getMyCommunity(u.uid).catch(() => null),
+        ]);
+        setHost(h); setCommunity(c);
+      } else { setHost(null); setCommunity(null); }
+    } finally {
+      setReady(true); // always leave the loading state
+    }
   }), []);
 
   function toast(m) { setToastMsg(m); clearTimeout(window.__t); window.__t = setTimeout(() => setToastMsg(""), 2800); }
