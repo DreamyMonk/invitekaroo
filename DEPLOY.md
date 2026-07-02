@@ -1,34 +1,37 @@
-# Deploying the Host Dashboard
+# Invite Karoo — Host Dashboard (production)
 
-**Live host:** https://invitekaroo.vercel.app (primary — used until host.invitekaroo.com DNS is connected)
+Real Next.js + React app backed by Firestore. No prototype/SPA, no dummy data —
+every view reads/writes live Firebase.
 
-## Vercel (primary)
-1. Import the repo in Vercel, set **Root Directory = `host-dashboard`** (framework: Next.js).
-2. Push to `main` → auto-deploys.
-3. **Enable real push notifications** (works even when the app is killed):
-   - Firebase Console → Project settings → **Service accounts** → *Generate new private key* (downloads a JSON).
-   - Vercel → Project → Settings → **Environment Variables** → add
-     `FIREBASE_SERVICE_ACCOUNT` = the entire JSON, pasted as one line.
-   - Redeploy. Now every programme published in the dashboard calls `/api/notify`,
-     which sends an FCM push to the `programs` topic — every app install is subscribed.
-4. When `host.invitekaroo.com` DNS is ready, add it under Vercel → Domains.
+**Live:** https://invitekaroo.vercel.app  (host domain: host.invitekaroo.com once DNS is added)
 
-## Firebase console settings (required)
-1. **Authentication → Sign-in method → Anonymous → Enable** (dashboard writes are authenticated with it).
-2. **Authentication → Settings → Authorized domains →** add `invitekaroo.vercel.app`
-   (and later `host.invitekaroo.com`; keep `localhost` for dev).
-3. **Firestore → Rules →** publish `../firestore.rules`.
+## Deploy (Vercel)
+Repo root **is** this Next.js app, so Vercel needs no Root Directory setting.
+Push to `main` → auto-deploys.
 
-## What syncs where
-| Dashboard action | Firestore | App |
+### One required env var (for push notifications)
+`/api/notify` sends FCM pushes when programmes are published.
+- Firebase Console → ⚙ Project settings → **Service accounts → Generate new private key** (JSON).
+- Vercel → Project → Settings → **Environment Variables** → `FIREBASE_SERVICE_ACCOUNT` = that JSON on one line → redeploy.
+(See `.env.example`.)
+
+## Firebase console — the only steps to go fully live
+1. **Authentication → Sign-in method → enable “Email/Password”** (dashboard host login) and **“Phone”** (the app).
+2. **Authentication → Settings → Authorized domains →** add `invitekaroo.vercel.app` (and `localhost`).
+3. **Firestore → Rules →** publish the repo-root `firestore.rules` (in the app project).
+
+## How everything connects (all live, no dummy)
+| Host does (dashboard) | Firestore | App shows |
 |---|---|---|
-| Publish/edit programme | `programs/fn_<id>` | Home feed, Today's Programmes, calendars — live |
-| Community profile | `communities/main` | Venue page, community page, search, subscriptions |
-| Publish programme (with env var set) | — | **Push notification** to all installs (`programs` topic) |
+| Publish/edit programme | `programs/*` | Home, Today's Programmes, calendars + **push** |
+| Edit community / edition | `communities/{cid}` | Venue page, community page, search, subscriptions |
+| Send alert (Reminders) | — (FCM) | Push + in-app notification |
+| — | `communities/{cid}/subscribers` ← app subscribe | **Subscribers** view |
+| — | `communities/{cid}/attendance` ← app QR check-in | **Attendance** view |
+| Record donations / rewards / team | `communities/{cid}/{coll}` | Dashboard views |
 
 ## Local dev
 ```bash
-cd host-dashboard
 npm install
-npm run dev   # http://localhost:3000  (push API returns 501 until the env var is set)
+npm run dev   # http://localhost:3000
 ```
