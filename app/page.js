@@ -54,7 +54,7 @@ export default function Page() {
 
   if (user === undefined || !ready) return <div className="center-screen"><div style={{ color: "#fff" }}>Loading…</div></div>;
   if (!user) return <AuthGate />;
-  if (!community) return <CommunitySetup uid={user.uid} onDone={reloadCommunity} toast={toast} />;
+  if (!community) return <CommunitySetup uid={user.uid} onCreated={setCommunity} toast={toast} />;
 
   const render = () => {
     switch (view) {
@@ -111,15 +111,29 @@ export default function Page() {
   );
 }
 
-function CommunitySetup({ uid, onDone, toast }) {
+function CommunitySetup({ uid, onCreated, toast }) {
   const [f, setF] = useState({ name: "", city: "", area: "", venue: "", editionLabel: "Edition 1" });
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
   async function save() {
-    if (!f.name.trim()) return toast("Community name required");
+    if (!f.name.trim()) { setErr("Community name required"); return; }
+    setErr("");
     setBusy(true);
-    try { await createCommunity(uid, f); toast("Community created"); onDone(); }
-    catch (e) { toast("Error: " + (e.message || e)); setBusy(false); }
+    try {
+      const community = await createCommunity(uid, f);
+      toast("Community created");
+      onCreated(community); // enter the dashboard immediately (no re-read needed)
+    } catch (e) {
+      const msg = String(e?.code || e?.message || e);
+      setErr(
+        /permission|insufficient/i.test(msg)
+          ? "Permission denied — publish the Firestore rules in the Firebase console, then try again."
+          : "Couldn't create: " + msg,
+      );
+    } finally {
+      setBusy(false);
+    }
   }
   return (
     <div className="center-screen">
@@ -134,7 +148,10 @@ function CommunitySetup({ uid, onDone, toast }) {
         </div>
         <label className="label">Current venue</label>
         <input className="input" value={f.venue} onChange={(e) => set("venue", e.target.value)} />
-        <button className="btn btn-p btn-block" style={{ marginTop: 16 }} disabled={busy} onClick={save}>Create community</button>
+        {err && <div className="err">{err}</div>}
+        <button className="btn btn-p btn-block" style={{ marginTop: 16 }} disabled={busy} onClick={save}>
+          {busy ? "Creating…" : "Create community"}
+        </button>
       </div>
     </div>
   );
