@@ -1,177 +1,155 @@
 "use client";
-import { useEffect, useState } from "react";
-import { watchAuth, getHost, getMyCommunity, createCommunity, logout } from "@/lib/db";
-import Icon from "@/components/Icon";
-import AuthGate from "@/components/AuthGate";
-import Overview from "@/components/views/Overview";
-import Schedule from "@/components/views/Schedule";
-import Community from "@/components/views/Community";
-import Editions from "@/components/views/Editions";
-import Analytics from "@/components/views/Analytics";
-import Settings from "@/components/views/Settings";
-import Collection from "@/components/views/Collection";
-import Subscribers from "@/components/views/Subscribers";
-import Attendance from "@/components/views/Attendance";
-import RSVP from "@/components/views/RSVP";
-import Donations from "@/components/views/Donations";
-import Rewards from "@/components/views/Rewards";
-import Reminders from "@/components/views/Reminders";
-import Access from "@/components/views/Access";
+import { useEffect, useRef } from "react";
+import { db, auth } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, serverTimestamp } from "firebase/firestore";
+import { sendEmailOtp, verifyEmailOtp, getMyCommunity, addProgram, updateProgram, deleteProgram, addSub, deleteSubDoc, updateCommunity, pushNotify } from "@/lib/db";
 
-const NAV = [
-  { sec: "Manage" },
-  { id: "overview", label: "Overview", ic: "grid" },
-  { id: "schedule", label: "Schedule", ic: "cal" },
-  { id: "community", label: "Community Profile", ic: "flower" },
-  { id: "editions", label: "Editions", ic: "layers" },
-  { sec: "People" },
-  { id: "subscribers", label: "Subscribers", ic: "users" },
-  { id: "attendance", label: "Attendance & QR", ic: "qr" },
-  { id: "analytics", label: "Analytics", ic: "chart" },
-  { id: "rsvp", label: "RSVP", ic: "check" },
-  { id: "donations", label: "Donations", ic: "rupee" },
-  { id: "rewards", label: "Rewards", ic: "gift" },
-  { sec: "Comms" },
-  { id: "reminders", label: "Reminders & Alerts", ic: "bell" },
-  { sec: "Admin" },
-  { id: "access", label: "Access Manager", ic: "user" },
-  { id: "settings", label: "Settings", ic: "gear" },
-];
-const TITLES = Object.fromEntries(NAV.filter((n) => n.id).map((n) => [n.id, n.label]));
-
-export default function Page() {
-  const [user, setUser] = useState(undefined); // undefined = loading
-  const [host, setHost] = useState(null);
-  const [community, setCommunity] = useState(null);
-  const [ready, setReady] = useState(false);
-  const [view, setView] = useState("overview");
-  const [toastMsg, setToastMsg] = useState("");
-
-  useEffect(() => watchAuth(async (u) => {
-    setUser(u || null);
-    try {
-      if (u) {
-        // .catch on each so one failing read never blocks the app on "Loading…"
-        const [h, c] = await Promise.all([
-          getHost(u.uid).catch(() => null),
-          getMyCommunity(u.uid).catch(() => null),
-        ]);
-        setHost(h); setCommunity(c);
-      } else { setHost(null); setCommunity(null); }
-    } finally {
-      setReady(true); // always leave the loading state
-    }
-  }), []);
-
-  function toast(m) { setToastMsg(m); clearTimeout(window.__t); window.__t = setTimeout(() => setToastMsg(""), 2800); }
-  async function reloadCommunity() { if (user) setCommunity(await getMyCommunity(user.uid)); }
-
-  if (user === undefined || !ready) return <div className="center-screen"><div style={{ color: "#fff" }}>Loading…</div></div>;
-  if (!user) return <AuthGate />;
-  if (!community) return <CommunitySetup uid={user.uid} onCreated={setCommunity} toast={toast} />;
-
-  const render = () => {
-    switch (view) {
-      case "overview": return <Overview community={community} go={setView} />;
-      case "schedule": return <Schedule community={community} toast={toast} />;
-      case "community": return <Community community={community} toast={toast} onSaved={reloadCommunity} />;
-      case "editions": return <Editions community={community} toast={toast} onSaved={reloadCommunity} />;
-      case "analytics": return <Analytics community={community} />;
-      case "settings": return <Settings user={user} host={host} community={community} />;
-      case "subscribers": return <Subscribers community={community} toast={toast} />;
-      case "attendance": return <Attendance community={community} toast={toast} />;
-      case "rsvp": return <RSVP community={community} toast={toast} />;
-      case "donations": return <Donations community={community} toast={toast} />;
-      case "rewards": return <Rewards community={community} toast={toast} />;
-      case "reminders": return <Reminders community={community} toast={toast} />;
-      case "access": return <Access community={community} toast={toast} />;
-      default: return <Collection community={community} name={view} toast={toast} />;
-    }
-  };
-
-  return (
-    <div style={{ display: "grid", gridTemplateColumns: "252px 1fr", height: "100vh" }}>
-      <aside className="side">
-        <div className="side-top">
-          <div className="side-brand">
-            <div className="mk"><Icon name="heart" size={20} stroke="#fff" /></div>
-            <div><div className="nm">Invite <b>Karoo</b></div><div className="rl">Community Host</div></div>
-          </div>
-          <div className="comm-switch" onClick={() => setView("community")}>
-            <div className="ci"><Icon name="flower" size={18} stroke="#fff" /></div>
-            <div className="csn"><div className="t">{community.name}</div><div className="s"><span className="dot" />{community.editionLabel || "Active"}</div></div>
-          </div>
-        </div>
-        <nav className="nav">
-          {NAV.map((n, i) => n.sec
-            ? <div className="nav-sec" key={"s" + i}>{n.sec}</div>
-            : <div key={n.id} className={`nav-i ${view === n.id ? "on" : ""}`} onClick={() => setView(n.id)}><Icon name={n.ic} /><span>{n.label}</span></div>)}
-        </nav>
-        <div className="side-foot">
-          <div className="host-chip" onClick={() => setView("settings")}>
-            <div className="av">{(host?.hostName || user.email || "H").slice(0, 2).toUpperCase()}</div>
-            <div className="hn"><div className="t">{host?.hostName || "Host"}</div><div className="s">{user.email}</div></div>
-          </div>
-        </div>
-      </aside>
-
-      <div className="main" style={{ overflow: "hidden", display: "flex", flexDirection: "column" }}>
-        <header className="topbar">
-          <div className="tb-title"><div className="t">{TITLES[view]}</div><div className="s">{community.name}</div></div>
-          <button className="btn btn-ghost btn-sm" onClick={logout}><Icon name="logout" size={15} /> Log out</button>
-        </header>
-        <main className="view" style={{ overflowY: "auto", flex: 1, padding: 24 }}>
-          <div className="view-in">{render()}</div>
-        </main>
-      </div>
-
-      {toastMsg && <div className="toast on"><Icon name="check" size={16} stroke="#fff" /><span>{toastMsg}</span></div>}
+// Exact reference shell (login + app + containers). Only the login field is
+// switched to email and the button to liveSignIn() — per the chosen approach.
+const SHELL = `
+<div id="login">
+  <div class="lg-glow" style="top:-140px;left:50%;transform:translateX(-50%);width:540px;height:400px;background:radial-gradient(circle,rgba(124,92,191,.16),transparent 70%);"></div>
+  <div class="lg-glow" style="bottom:-120px;right:-80px;width:380px;height:380px;background:radial-gradient(circle,rgba(245,166,35,.1),transparent 70%);"></div>
+  <div class="lg-card">
+    <div class="lg-mk"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.5"/><path d="M12 9.5c0-2 1.5-3.5 0-5.5-1.5 2-1.5 3.5 0 5.5M12 14.5c0 2-1.5 3.5 0 5.5 1.5-2 1.5-3.5 0-5.5M9.5 12c-2 0-3.5 1.5-5.5 0 2-1.5 3.5-1.5 5.5 0M14.5 12c2 0 3.5-1.5 5.5 0-2 1.5-3.5 1.5-5.5 0"/></svg></div>
+    <div class="lg-wm">Invite <b>Karoo</b></div>
+    <div class="lg-tag">Community Host</div>
+    <div class="lg-div"></div>
+    <div class="field"><label>Email</label><div class="ip-wrap"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/></svg><input id="lg-email" type="email" class="mono" placeholder="you@example.com" style="letter-spacing:.3px;"/></div></div>
+    <div class="field" style="margin-bottom:8px;"><label>One-time password</label>
+      <div class="lg-otp"><input maxlength="1" placeholder="•"/><input maxlength="1" placeholder="•"/><input maxlength="1" placeholder="•"/><input maxlength="1" placeholder="•"/><input maxlength="1" placeholder="•"/><input maxlength="1" placeholder="•"/></div>
     </div>
-  );
+    <button id="lg-btn" class="btn btn-p btn-full" onclick="liveSignIn()" style="margin-top:14px;">Send code</button>
+    <div id="lg-msg" style="text-align:center;font-size:.66rem;color:var(--ink4);margin-top:18px;display:flex;align-items:center;justify-content:center;gap:6px;"><svg viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.4" style="width:12px;height:12px;"><polyline points="20 6 9 17 4 12"/></svg>Approved host access only</div>
+  </div>
+</div>
+
+<div id="app" class="hide">
+  <aside class="side">
+    <div class="side-top">
+      <div class="side-brand">
+        <div class="mk"><svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div>
+        <div><div class="nm">Invite <b>Karoo</b></div><div class="rl">Community Host</div></div>
+      </div>
+      <div class="comm-switch" onclick="nav('community')">
+        <div class="ci"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.5"/><path d="M12 9.5c0-2 1.5-3.5 0-5.5-1.5 2-1.5 3.5 0 5.5M12 14.5c0 2-1.5 3.5 0 5.5 1.5-2 1.5-3.5 0-5.5M9.5 12c-2 0-3.5 1.5-5.5 0 2-1.5 3.5-1.5 5.5 0M14.5 12c2 0 3.5-1.5 5.5 0-2 1.5-3.5 1.5-5.5 0"/></svg></div>
+        <div class="csn"><div class="t" id="cs-name">Community</div><div class="s"><span class="dot"></span><span id="cs-ed">Active</span></div></div>
+        <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+    </div>
+    <nav class="nav" id="nav"></nav>
+    <div class="side-foot">
+      <div class="host-chip" onclick="nav('settings')">
+        <div class="av" id="hc-av">H</div>
+        <div class="hn"><div class="t" id="hc-name">Host</div><div class="s" id="hc-sub">Host</div></div>
+        <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+    </div>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <div class="tb-title"><div class="t" id="tb-t">Overview</div><div class="s" id="tb-s"></div></div>
+      <div class="ed-pill"><span class="dot"></span><div><div class="x" id="ed-day">EDITION</div><div class="d" id="ed-win"></div></div></div>
+      <div class="tb-act" onclick="nav('reminders')" title="Reminders"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
+      <div class="tb-act" onclick="openFnModal()" title="Add function"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+    </header>
+    <main class="view"><div class="view-in" id="view"></div></main>
+  </div>
+</div>
+
+<div class="ov" id="ov"></div>
+<div class="drawer-ov" id="drawerOv"></div>
+<div class="toast" id="toast"></div>
+<div class="kiosk-ov" id="kioskOv"></div>
+<div id="printArea"></div>
+`;
+
+// ── Reshape Firestore → the reference's exact data structures ──
+function isoOf(v) { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(v || ""); return m ? { y: +m[1], m: +m[2] - 1, d: +m[3] } : null; }
+
+async function loadAll(uid) {
+  const community = await getMyCommunity(uid);
+  if (!community) return null;
+  const cid = community.id;
+  const grab = async (name) => {
+    try { const s = await getDocs(collection(db, "communities", cid, name)); return s.docs.map((d) => ({ id: d.id, ...d.data() })); }
+    catch { return []; }
+  };
+  const [progSnap, subs, att, rsvps, dons, rems, team] = await Promise.all([
+    getDocs(query(collection(db, "programs"), where("communityId", "==", cid))).then((s) => s.docs.map((d) => ({ id: d.id, ...d.data() }))).catch(() => []),
+    grab("subscribers"), grab("attendance"), grab("rsvps"), grab("donations"), grab("reminders"), grab("team"),
+  ]);
+
+  // programmes keyed by ISO date (exact shape the render functions expect)
+  const programmes = {};
+  let fid = 0;
+  progSnap.sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`)).forEach((p) => {
+    const day = p.date || "";
+    if (!day) return;
+    (programmes[day] = programmes[day] || []).push({
+      _docId: p.id, id: ++fid, name: p.title || "Programme", time: p.time || "", dur: p.dur || "", venue: p.venue || "", area: p.area || "",
+      status: p.status || "scheduled", rem: [], note: p.description || "", published: p.published !== false,
+    });
+  });
+
+  // subscribers with computed activity
+  const attByName = {}; att.forEach((a) => { const n = (a.name || "").toLowerCase(); attByName[n] = (attByName[n] || 0) + 1; });
+  const donByName = {}; dons.forEach((d) => { const n = (d.donor || "").toLowerCase(); donByName[n] = (donByName[n] || 0) + Number(d.amount || 0); });
+  const subscribers = subs.map((s, i) => ({
+    id: i + 1, name: s.name || "Subscriber", family: "", phone: s.mobile || "", city: s.city || "", since: s.since || "",
+    status: s.suspended ? "suspended" : "active", editions: 1, attended: attByName[(s.name || "").toLowerCase()] || 0,
+    rsvp: rsvps.filter((r) => (r.name || "").toLowerCase() === (s.name || "").toLowerCase() && r.status === "going").length,
+    donated: donByName[(s.name || "").toLowerCase()] || 0, gift: null, events: [], _uid: s.uid || s.id,
+  }));
+
+  // edition
+  const es = isoOf(community.editionStart), ee = isoOf(community.editionEnd);
+  let days = Number(community.editionDays || 0);
+  if (!days && es && ee) days = Math.round((new Date(ee.y, ee.m, ee.d) - new Date(es.y, es.m, es.d)) / 86400000) + 1;
+  const edition = { label: community.editionLabel || "Edition", start: es || null, end: ee || null, days: days || Object.keys(programmes).length || 1, status: community.editionStatus || "active" };
+
+  // attLog: fnId -> [subIndex] (by matching attendance.programme → today's function names)
+  const attLog = {};
+  Object.values(programmes).flat().forEach((f) => {
+    attLog[f.id] = att.filter((a) => (a.programme || "").toLowerCase() === f.name.toLowerCase())
+      .map((a) => subscribers.findIndex((s) => (s.name || "").toLowerCase() === (a.name || "").toLowerCase()) + 1).filter((x) => x > 0);
+  });
+
+  const donations = dons.map((d, i) => ({ id: d.id, no: i + 1, sub: subscribers.findIndex((s) => (s.name || "").toLowerCase() === (d.donor || "").toLowerCase()) + 1 || 0, donor: d.donor || "", amt: Number(d.amount || 0), date: d.at || "", mode: d.mode || "—", purpose: d.note || "General" }));
+  const reminders = rems.map((r, i) => ({ id: r.id, kind: "reminder", fn: r.title || "Alert", when: r.sentAt || "", msg: r.message || "", ch: ["app"], reach: subscribers.length, status: "sent" }));
+  const teamRows = team.map((t, i) => ({ id: t.id, name: t.name || "", email: t.email || "", role: t.role || "Viewer", status: "active", last: "" }));
+
+  const hostName = community.name || "Host";
+  return { community, edition, programmes, subscribers, attLog, donations, reminders, team: teamRows, hostName, cid };
 }
 
-function CommunitySetup({ uid, onCreated, toast }) {
-  const [f, setF] = useState({ name: "", city: "", area: "", venue: "", editionLabel: "Edition 1" });
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
-  const set = (k, v) => setF((x) => ({ ...x, [k]: v }));
-  async function save() {
-    if (!f.name.trim()) { setErr("Community name required"); return; }
-    setErr("");
-    setBusy(true);
-    try {
-      const community = await createCommunity(uid, f);
-      toast("Community created");
-      onCreated(community); // enter the dashboard immediately (no re-read needed)
-    } catch (e) {
-      const msg = String(e?.code || e?.message || e);
-      setErr(
-        /permission|insufficient/i.test(msg)
-          ? "Permission denied — publish the Firestore rules in the Firebase console, then try again."
-          : "Couldn't create: " + msg,
-      );
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <div className="center-screen">
-      <div className="card" style={{ maxWidth: 460, width: "100%" }}>
-        <div className="h2">Set up your community</div>
-        <p className="muted" style={{ marginTop: 4, marginBottom: 8 }}>This is shown to attendees in the app.</p>
-        <label className="label">Community name</label>
-        <input className="input" value={f.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Jain Community Sammelan" />
-        <div className="row">
-          <div><label className="label">City</label><input className="input" value={f.city} onChange={(e) => set("city", e.target.value)} /></div>
-          <div><label className="label">Area</label><input className="input" value={f.area} onChange={(e) => set("area", e.target.value)} /></div>
-        </div>
-        <label className="label">Current venue</label>
-        <input className="input" value={f.venue} onChange={(e) => set("venue", e.target.value)} />
-        {err && <div className="err">{err}</div>}
-        <button className="btn btn-p btn-block" style={{ marginTop: 16 }} disabled={busy} onClick={save}>
-          {busy ? "Creating…" : "Create community"}
-        </button>
-      </div>
-    </div>
-  );
+export default function Page() {
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current) return; started.current = true;
+
+    // Bridge: expose Firestore + auth helpers to the injected reference script.
+    window.__fb = {
+      sendOtp: (email) => sendEmailOtp(email),
+      verifyOtp: async (email, code) => { const u = await verifyEmailOtp(email, code); return u.uid; },
+      currentUid: () => auth.currentUser && auth.currentUser.uid,
+      watchAuth: (cb) => onAuthStateChanged(auth, cb),
+      loadAll,
+      // mutations (return promises; the adapter reloads + re-renders after)
+      addProgram: (community, p) => addProgram(community, p),
+      updateProgram: (id, p) => updateProgram(id, p),
+      deleteProgram: (id) => deleteProgram(id),
+      addSub: (cid, name, data) => addSub(cid, name, data),
+      deleteSub: (cid, name, id) => deleteSubDoc(cid, name, id),
+      updateCommunity: (cid, data) => updateCommunity(cid, data),
+      pushNotify: (t, b) => pushNotify(t, b),
+      serverTs: serverTimestamp,
+    };
+
+    const load = (src) => new Promise((res, rej) => { const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = rej; document.body.appendChild(s); });
+    (async () => { try { await load("/dash.js"); await load("/dash-live.js"); } catch (e) { /* ignore */ } })();
+  }, []);
+
+  return <div id="dash-root" dangerouslySetInnerHTML={{ __html: SHELL }} />;
 }
