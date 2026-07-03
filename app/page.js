@@ -10,6 +10,13 @@ import Editions from "@/components/views/Editions";
 import Analytics from "@/components/views/Analytics";
 import Settings from "@/components/views/Settings";
 import Collection from "@/components/views/Collection";
+import Subscribers from "@/components/views/Subscribers";
+import Attendance from "@/components/views/Attendance";
+import RSVP from "@/components/views/RSVP";
+import Donations from "@/components/views/Donations";
+import Rewards from "@/components/views/Rewards";
+import Reminders from "@/components/views/Reminders";
+import Access from "@/components/views/Access";
 
 const NAV = [
   { sec: "Manage" },
@@ -71,8 +78,13 @@ export default function Page() {
       case "editions": return <Editions community={community} toast={toast} onSaved={reloadCommunity} />;
       case "analytics": return <Analytics community={community} />;
       case "settings": return <Settings user={user} host={host} community={community} />;
-      case "rsvp": return <Collection community={community} name="rsvps" toast={toast} />;
-      case "access": return <Collection community={community} name="team" toast={toast} />;
+      case "subscribers": return <Subscribers community={community} toast={toast} />;
+      case "attendance": return <Attendance community={community} toast={toast} />;
+      case "rsvp": return <RSVP community={community} toast={toast} />;
+      case "donations": return <Donations community={community} toast={toast} />;
+      case "rewards": return <Rewards community={community} toast={toast} />;
+      case "reminders": return <Reminders community={community} toast={toast} />;
+      case "access": return <Access community={community} toast={toast} />;
       default: return <Collection community={community} name={view} toast={toast} />;
     }
   };
