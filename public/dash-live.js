@@ -18,6 +18,7 @@
     donations = d.donations;                 // eslint-disable-line
     reminders = d.reminders;                 // eslint-disable-line
     team = d.team;                           // eslint-disable-line
+    if (d.reminderAutomation) { try { reminderAutomation = d.reminderAutomation; } catch (e) {} }
     __community = d.community; __cid = d.cid;
     // live chrome (sidebar + topbar)
     var name = d.community.name || 'Community';
@@ -41,28 +42,38 @@
     try { var d = await window.__fb.loadAll(__uid); applyData(d); if (typeof current !== 'undefined' && current) nav(current); } catch (e) {}
   };
 
-  // ── Login: exact UI, email OTP underneath ──
+  // ── Login: exact UI, email OTP underneath. "Send code" sits beside the email
+  //    field (per client request); the main button verifies + signs in. ──
+  window.liveSendCode = async function () {
+    var email = ($('lg-email') && $('lg-email').value || '').trim().toLowerCase();
+    var send = $('lg-send'), msg = $('lg-msg');
+    if (!email || email.indexOf('@') < 1) { if (msg) msg.textContent = 'Enter a valid email'; return; }
+    window.__hostEmail = email;
+    if (send) { send.textContent = 'Sending…'; send.disabled = true; }
+    try {
+      await window.__fb.sendOtp(email); __sent = true;
+      if (msg) msg.textContent = 'Code sent to ' + email;
+      if (send) send.textContent = 'Resend';
+      var b0 = document.querySelector('.lg-otp input'); if (b0) b0.focus();
+    } catch (e) { if (msg) msg.textContent = String(e.message || e); if (send) send.textContent = 'Send code'; }
+    if (send) send.disabled = false;
+  };
+
   window.liveSignIn = async function () {
     var email = ($('lg-email') && $('lg-email').value || '').trim().toLowerCase();
     var boxes = document.querySelectorAll('.lg-otp input');
     var code = Array.prototype.map.call(boxes, function (b) { return b.value; }).join('');
     var btn = $('lg-btn'), msg = $('lg-msg');
     if (!email) { if (msg) msg.textContent = 'Enter your email'; return; }
-    if (!__sent) {
-      if (btn) { btn.textContent = 'Sending…'; btn.disabled = true; }
-      try { await window.__fb.sendOtp(email); __sent = true; if (msg) msg.textContent = 'Code sent to ' + email; if (btn) btn.textContent = 'Verify & sign in'; if (boxes[0]) boxes[0].focus(); }
-      catch (e) { if (msg) msg.textContent = String(e.message || e); if (btn) btn.textContent = 'Send code'; }
-      if (btn) btn.disabled = false;
-      return;
-    }
+    if (!__sent) { if (msg) msg.textContent = 'Tap “Send code” first'; return; }
     if (code.length < 6) { if (msg) msg.textContent = 'Enter the 6-digit code'; return; }
     if (btn) { btn.textContent = 'Verifying…'; btn.disabled = true; }
     try {
       __uid = await window.__fb.verifyOtp(email, code);
       var d = await window.__fb.loadAll(__uid);
-      if (!d) { if (msg) msg.textContent = 'No community yet for this host. Create one in the app/dashboard first.'; if (btn) { btn.textContent = 'Verify & sign in'; btn.disabled = false; } return; }
+      if (!d) { if (msg) msg.textContent = 'No community yet for this host — create one first.'; if (btn) { btn.textContent = 'Sign in'; btn.disabled = false; } return; }
       window.__enter(d);
-    } catch (e) { if (msg) msg.textContent = String(e.message || e); if (btn) { btn.textContent = 'Verify & sign in'; btn.disabled = false; } }
+    } catch (e) { if (msg) msg.textContent = String(e.message || e); if (btn) { btn.textContent = 'Sign in'; btn.disabled = false; } }
   };
 
   // logout → back to login
@@ -113,12 +124,63 @@
     } catch (e) { toast('Error: ' + (e.message || e)); }
   };
 
-  // Team invite / remove (Access Manager)
-  var _origInvite = window.inviteMember, _origRemove = window.removeMember;
-  if (typeof window.saveMember === 'function') {
-    var _sm = window.saveMember;
-    window.saveMember = async function () { try { await _sm.apply(this, arguments); } catch (e) {} };
-  }
+  // ── Live stats helpers (called by the reference render functions) ──
+  window.subsFmt = function () { try { return Number(subscribers.length).toLocaleString('en-IN'); } catch (e) { return '0'; } };
+  window.totalCheckins = function () { try { var n = 0; for (var k in attLog) n += attLog[k].length; return n; } catch (e) { return 0; } };
+  window.donTotal = function () { try { return donations.reduce(function (s, d) { return s + (d.amt || 0); }, 0); } catch (e) { return 0; } };
+  window.citiesReached = function () { try { var s = {}; subscribers.forEach(function (x) { if (x.city) s[x.city] = 1; }); return Object.keys(s).length; } catch (e) { return 0; } };
+
+  // ── Community profile save ──
+  window.saveCommunity = async function () {
+    var g = function (id) { var e = $(id); return e ? e.value : undefined; };
+    var data = {};
+    [['name', 'name'], ['recur', 'recurrence'], ['about', 'about'], ['city', 'city'], ['area', 'area'], ['venue', 'venue'], ['guru', 'guru'], ['venueAddr', 'venueAddr']].forEach(function (p) { var v = g('c-' + p[0]); if (v !== undefined) data[p[1]] = v; });
+    try { await window.__fb.updateCommunity(__cid, data); toast('Community profile saved · updated across the app', true); await window.__reload(); } catch (e) { toast('Error: ' + (e.message || e)); }
+  };
+
+  // ── Rewards ──
+  window.saveGift = async function (id) {
+    var s = subscribers.filter(function (x) { return x.id === id; })[0]; if (!s) return;
+    var gv = ($('gift-name') && $('gift-name').value || '').trim(); if (!gv) { toast('Enter a gift'); return; }
+    try { await window.__fb.addSub(__cid, 'rewards', { devotee: s.name, gift: gv, reason: '' }); closeModal(); toast('Gift “' + gv + '” given to ' + s.name + ' 🎁'); await window.__reload(); } catch (e) { toast('Error: ' + (e.message || e)); }
+  };
+  window.clearGift = async function (id) {
+    var s = subscribers.filter(function (x) { return x.id === id; })[0]; if (!s) return; closeModal();
+    try { if (s._giftDoc) await window.__fb.deleteSub(__cid, 'rewards', s._giftDoc); toast('Gift removed'); await window.__reload(); } catch (e) { toast('Error: ' + (e.message || e)); }
+  };
+
+  // ── Subscriber suspend / reactivate ──
+  window.toggleSuspend = async function (id) {
+    var s = subscribers.filter(function (x) { return x.id === id; })[0]; if (!s || !s._docId) return;
+    var sus = s.status !== 'suspended';
+    try { await window.__fb.updateSub(__cid, 'subscribers', s._docId, { suspended: sus }); closeDrawer(); toast(s.name + (sus ? ' suspended' : ' reactivated')); await window.__reload(); } catch (e) { toast('Error: ' + (e.message || e)); }
+  };
+
+  // ── Team / Access Manager ──
+  window.sendInvite = async function () {
+    var email = ($('inv-email') && $('inv-email').value || '').trim(); if (!email || email.indexOf('@') < 1) { toast('Enter a valid email'); return; }
+    var name = ($('inv-name') && $('inv-name').value || '').trim() || email.split('@')[0];
+    var role = $('inv-role') ? $('inv-role').value : 'Viewer';
+    try { await window.__fb.addSub(__cid, 'team', { name: name, email: email, role: role }); closeModal(); toast('Invite sent to ' + email + ' · they log in with email + OTP'); await window.__reload(); } catch (e) { toast('Error: ' + (e.message || e)); }
+  };
+  window.saveMember = async function () {
+    var m = team.filter(function (x) { return x.id === apMember; })[0]; if (!m) return;
+    try { await window.__fb.updateSub(__cid, 'team', m.id, { role: apRole, perms: apPerms }); closeDrawer(); toast('Access updated for ' + m.name); await window.__reload(); } catch (e) { toast('Error: ' + (e.message || e)); }
+  };
+  window.memberRevoke = function (id) {
+    var m = team.filter(function (x) { return x.id === id; })[0]; if (!m) return;
+    openConfirm('Revoke access?', 'Remove ' + m.name + ' from your team? They lose all access.', 'Revoke', 'btn-er', async function () {
+      try { await window.__fb.deleteSub(__cid, 'team', m.id); toast(m.name + ' removed'); await window.__reload(); } catch (e) { toast('Error: ' + (e.message || e)); }
+    });
+  };
+
+  // ── Reminder automation rules → persist to the community doc ──
+  function persistRules() { try { window.__fb.updateCommunity(__cid, { reminderRules: reminderAutomation }); } catch (e) {} }
+  var _tra = window.toggleRemAuto, _rra = window.removeRemAuto, _trc = window.toggleRemCh, _sra = window.saveRemAuto;
+  if (_tra) window.toggleRemAuto = function (id) { _tra(id); persistRules(); };
+  if (_rra) window.removeRemAuto = function (id) { _rra(id); persistRules(); };
+  if (_trc) window.toggleRemCh = function (id, ch) { _trc(id, ch); persistRules(); };
+  if (_sra) window.saveRemAuto = function () { _sra(); persistRules(); };
 
   // Auto-enter if already signed in (session persists)
   if (window.__fb && window.__fb.watchAuth) {

@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { db, auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, serverTimestamp } from "firebase/firestore";
-import { sendEmailOtp, verifyEmailOtp, getMyCommunity, addProgram, updateProgram, deleteProgram, addSub, deleteSubDoc, updateCommunity, pushNotify } from "@/lib/db";
+import { sendEmailOtp, verifyEmailOtp, getMyCommunity, addProgram, updateProgram, deleteProgram, addSub, updateSubDoc, deleteSubDoc, updateCommunity, pushNotify } from "@/lib/db";
 
 // Exact reference shell (login + app + containers). Only the login field is
 // switched to email and the button to liveSignIn() — per the chosen approach.
@@ -16,11 +16,11 @@ const SHELL = `
     <div class="lg-wm">Invite <b>Karoo</b></div>
     <div class="lg-tag">Community Host</div>
     <div class="lg-div"></div>
-    <div class="field"><label>Email</label><div class="ip-wrap"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/></svg><input id="lg-email" type="email" class="mono" placeholder="you@example.com" style="letter-spacing:.3px;"/></div></div>
+    <div class="field"><label>Email</label><div style="display:flex;gap:8px;align-items:stretch;"><div class="ip-wrap" style="flex:1;min-width:0;"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/></svg><input id="lg-email" type="email" class="mono" placeholder="you@example.com" style="letter-spacing:.3px;"/></div><button id="lg-send" class="btn btn-s" onclick="liveSendCode()" style="white-space:nowrap;flex-shrink:0;">Send code</button></div></div>
     <div class="field" style="margin-bottom:8px;"><label>One-time password</label>
       <div class="lg-otp"><input maxlength="1" placeholder="•"/><input maxlength="1" placeholder="•"/><input maxlength="1" placeholder="•"/><input maxlength="1" placeholder="•"/><input maxlength="1" placeholder="•"/><input maxlength="1" placeholder="•"/></div>
     </div>
-    <button id="lg-btn" class="btn btn-p btn-full" onclick="liveSignIn()" style="margin-top:14px;">Send code</button>
+    <button id="lg-btn" class="btn btn-p btn-full" onclick="liveSignIn()" style="margin-top:14px;">Sign in</button>
     <div id="lg-msg" style="text-align:center;font-size:.66rem;color:var(--ink4);margin-top:18px;display:flex;align-items:center;justify-content:center;gap:6px;"><svg viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.4" style="width:12px;height:12px;"><polyline points="20 6 9 17 4 12"/></svg>Approved host access only</div>
   </div>
 </div>
@@ -76,10 +76,11 @@ async function loadAll(uid) {
     try { const s = await getDocs(collection(db, "communities", cid, name)); return s.docs.map((d) => ({ id: d.id, ...d.data() })); }
     catch { return []; }
   };
-  const [progSnap, subs, att, rsvps, dons, rems, team] = await Promise.all([
+  const [progSnap, subs, att, rsvps, dons, rems, team, rewards] = await Promise.all([
     getDocs(query(collection(db, "programs"), where("communityId", "==", cid))).then((s) => s.docs.map((d) => ({ id: d.id, ...d.data() }))).catch(() => []),
-    grab("subscribers"), grab("attendance"), grab("rsvps"), grab("donations"), grab("reminders"), grab("team"),
+    grab("subscribers"), grab("attendance"), grab("rsvps"), grab("donations"), grab("reminders"), grab("team"), grab("rewards"),
   ]);
+  const giftByName = {}; rewards.forEach((r) => { giftByName[(r.devotee || "").toLowerCase()] = { gift: r.gift || "", docId: r.id }; });
 
   // programmes keyed by ISO date (exact shape the render functions expect)
   const programmes = {};
@@ -96,12 +97,15 @@ async function loadAll(uid) {
   // subscribers with computed activity
   const attByName = {}; att.forEach((a) => { const n = (a.name || "").toLowerCase(); attByName[n] = (attByName[n] || 0) + 1; });
   const donByName = {}; dons.forEach((d) => { const n = (d.donor || "").toLowerCase(); donByName[n] = (donByName[n] || 0) + Number(d.amount || 0); });
-  const subscribers = subs.map((s, i) => ({
-    id: i + 1, name: s.name || "Subscriber", family: "", phone: s.mobile || "", city: s.city || "", since: s.since || "",
-    status: s.suspended ? "suspended" : "active", editions: 1, attended: attByName[(s.name || "").toLowerCase()] || 0,
-    rsvp: rsvps.filter((r) => (r.name || "").toLowerCase() === (s.name || "").toLowerCase() && r.status === "going").length,
-    donated: donByName[(s.name || "").toLowerCase()] || 0, gift: null, events: [], _uid: s.uid || s.id,
-  }));
+  const subscribers = subs.map((s, i) => {
+    const key = (s.name || "").toLowerCase(); const g = giftByName[key] || {};
+    return {
+      id: i + 1, name: s.name || "Subscriber", family: "", phone: s.mobile || "", city: s.city || "", since: s.since || "",
+      status: s.suspended ? "suspended" : "active", editions: 1, attended: attByName[key] || 0,
+      rsvp: rsvps.filter((r) => (r.name || "").toLowerCase() === key && r.status === "going").length,
+      donated: donByName[key] || 0, gift: g.gift || null, events: [], _uid: s.uid || s.id, _docId: s.id, _giftDoc: g.docId || null,
+    };
+  });
 
   // edition
   const es = isoOf(community.editionStart), ee = isoOf(community.editionEnd);
@@ -121,7 +125,8 @@ async function loadAll(uid) {
   const teamRows = team.map((t, i) => ({ id: t.id, name: t.name || "", email: t.email || "", role: t.role || "Viewer", status: "active", last: "" }));
 
   const hostName = community.name || "Host";
-  return { community, edition, programmes, subscribers, attLog, donations, reminders, team: teamRows, hostName, cid };
+  const reminderAutomation = Array.isArray(community.reminderRules) && community.reminderRules.length ? community.reminderRules : null;
+  return { community, edition, programmes, subscribers, attLog, donations, reminders, team: teamRows, reminderAutomation, hostName, cid };
 }
 
 export default function Page() {
@@ -141,6 +146,7 @@ export default function Page() {
       updateProgram: (id, p) => updateProgram(id, p),
       deleteProgram: (id) => deleteProgram(id),
       addSub: (cid, name, data) => addSub(cid, name, data),
+      updateSub: (cid, name, id, data) => updateSubDoc(cid, name, id, data),
       deleteSub: (cid, name, id) => deleteSubDoc(cid, name, id),
       updateCommunity: (cid, data) => updateCommunity(cid, data),
       pushNotify: (t, b) => pushNotify(t, b),

@@ -132,10 +132,10 @@ var _rcptSeq=7;
 
 // reminders / dispatch log
 var reminders=[
-  {id:1,kind:'reminder',fn:'Morning Pravachan',when:'Today 6:00 AM',msg:'Starts in 1 hour at Main Hall',ch:['app','wa'],reach:1248,status:'sent'},
-  {id:2,kind:'postponed',fn:'Bhajan Sandhya',when:'23 May, auto',msg:'Rescheduled to 5:00 PM (from 4:00 PM)',ch:['app','wa'],reach:1248,status:'sent'},
-  {id:3,kind:'cancelled',fn:'Cultural Programme · 24 May',when:'Today 8:10 AM',msg:'Cancelled — performers unavailable',ch:['app','wa'],reach:1248,status:'sent'},
-  {id:4,kind:'reminder',fn:'Yuva Sammelan',when:'Today, scheduled',msg:'Starts in 1 day · Hall B',ch:['app'],reach:1248,status:'scheduled'},
+  {id:1,kind:'reminder',fn:'Morning Pravachan',when:'Today 6:00 AM',msg:'Starts in 1 hour at Main Hall',ch:['app','wa'],reach:subscribers.length,status:'sent'},
+  {id:2,kind:'postponed',fn:'Bhajan Sandhya',when:'23 May, auto',msg:'Rescheduled to 5:00 PM (from 4:00 PM)',ch:['app','wa'],reach:subscribers.length,status:'sent'},
+  {id:3,kind:'cancelled',fn:'Cultural Programme · 24 May',when:'Today 8:10 AM',msg:'Cancelled — performers unavailable',ch:['app','wa'],reach:subscribers.length,status:'sent'},
+  {id:4,kind:'reminder',fn:'Yuva Sammelan',when:'Today, scheduled',msg:'Starts in 1 day · Hall B',ch:['app'],reach:subscribers.length,status:'scheduled'},
   {id:5,kind:'new',fn:'Bhakti Sangeet · 27 May',when:'Yesterday 7:30 PM',msg:'New programme added to schedule',ch:['app','wa'],reach:1240,status:'sent'}
 ];
 
@@ -201,7 +201,7 @@ function rsvpCount(f){return 90+(f.id*37)%160;}
 function remLabel(r){return {'15m':'15 min','30m':'30 min','1h':'1 hour','1d':'1 day'}[r]||r;}
 function money(n){return '₹'+n.toLocaleString('en-IN');}
 function colorFor(str){var c=['#7C5CBF','#D97706','#16A34A','#A21CAF','#1D4ED8','#0F766E','#B45309'];var s=0;for(var i=0;i<str.length;i++)s+=str.charCodeAt(i);return c[s%c.length];}
-function totalSubs(){return 1248;}
+function totalSubs(){return subscribers.length;}
 function attendedTodayCount(){var set={};Object.keys(attLog).forEach(function(f){attLog[f].forEach(function(s){set[s]=1;});});return Object.keys(set).length;}
 
 /* ═══════════════ NAV / ROUTER ═══════════════ */
@@ -212,7 +212,7 @@ var NAVCFG=[
   {id:'community',label:'Community Profile',ic:'flower',t:'Community Profile',s:'Identity & discovery setup'},
   {id:'editions',label:'Editions',ic:'layers',t:'Editions',s:'Edition lifecycle & history'},
   {sec:'People'},
-  {id:'subscribers',label:'Subscribers',ic:'users',t:'Subscribers',s:'1,248 active subscribers'},
+  {id:'subscribers',label:'Subscribers',ic:'users',t:'Subscribers',s:subsFmt()+' active subscribers'},
   {id:'attendance',label:'Attendance & QR',ic:'qr',t:'Attendance & QR',s:'Function-wise check-in'},
   {id:'analytics',label:'Analytics',ic:'chart',t:'Analytics',s:'Attendance & engagement insights'},
   {id:'rsvp',label:'RSVP',ic:'check',t:'RSVP Management',s:'Confirmations & headcount for arrangements'},
@@ -253,10 +253,10 @@ function vOverview(){
   var live=todayFns.filter(function(f){return f.status==='live';})[0];
   var attRate=Math.round(attendedTodayCount()/totalSubs()*100);
   var kpis=[
-    {ic:'users',bg:'var(--t1)',st:'var(--t7)',val:'1,248',lbl:'Subscribers',delta:'+36 this edition',up:1},
+    {ic:'users',bg:'var(--t1)',st:'var(--t7)',val:subsFmt(),lbl:'Subscribers',delta:'+36 this edition',up:1},
     {ic:'cal',bg:'var(--g1)',st:'var(--g5)',val:todayFns.length,lbl:'Functions today',delta:'Day 3 of 9'},
     {ic:'qr',bg:'var(--ok1)',st:'#16A34A',val:attendedTodayCount(),lbl:'Checked in today',delta:attRate+'% of subs',up:1},
-    {ic:'rupee',bg:'var(--in1)',st:'var(--in)',val:money(142200),lbl:'Donations · edition',delta:'7 contributors',up:1}
+    {ic:'rupee',bg:'var(--in1)',st:'var(--in)',val:money(donTotal()),lbl:'Donations · edition',delta:donations.length+' contributors',up:1}
   ];
   var kpiHtml=kpis.map(function(k){return '<div class="kpi">'
     +(k.delta?'<div class="delta '+(k.up?'up':'')+'">'+k.delta+'</div>':'')
@@ -427,12 +427,12 @@ function renderDayPanel(){
 function t24(t){var m=(t||'').match(/(\d+):(\d+)\s*(AM|PM)/i);if(!m)return 0;var h=+m[1];if(/pm/i.test(m[3])&&h!==12)h+=12;if(/am/i.test(m[3])&&h===12)h=0;return h*60+ +m[2];}
 function findFn(id){var r=null;Object.keys(programmes).forEach(function(k){programmes[k].forEach(function(f){if(f.id===id)r={f:f,iso:k};});});return r;}
 
-function postponeFn(id){var x=findFn(id);if(!x)return;openConfirm('Postpone this event?','“'+x.f.name+'” will be marked postponed and all subscribers notified on app + WhatsApp.','Yes, postpone','btn-gold',function(){x.f.status='postponed';x.f.note='Postponed — new timing to be confirmed';afterSchedule();pushReminder('postponed',x.f.name,'Rescheduled — please check updated time',true);toast('Postponed · app + WhatsApp alert sent to 1,248 subscribers',true);});}
-function cancelFn(id){var x=findFn(id);if(!x)return;openConfirm('Cancel this function?','“'+x.f.name+'” will be marked cancelled and all subscribers notified on app + WhatsApp.','Cancel function','btn-er',function(){x.f.status='cancelled';x.f.note='Cancelled by host';x.f.rem=[];afterSchedule();pushReminder('cancelled',x.f.name,'This programme has been cancelled',true);toast('Cancelled · alert sent to 1,248 subscribers',true);});}
+function postponeFn(id){var x=findFn(id);if(!x)return;openConfirm('Postpone this event?','“'+x.f.name+'” will be marked postponed and all subscribers notified on app + WhatsApp.','Yes, postpone','btn-gold',function(){x.f.status='postponed';x.f.note='Postponed — new timing to be confirmed';afterSchedule();pushReminder('postponed',x.f.name,'Rescheduled — please check updated time',true);toast('Postponed · app + WhatsApp alert sent to subscribers',true);});}
+function cancelFn(id){var x=findFn(id);if(!x)return;openConfirm('Cancel this function?','“'+x.f.name+'” will be marked cancelled and all subscribers notified on app + WhatsApp.','Cancel function','btn-er',function(){x.f.status='cancelled';x.f.note='Cancelled by host';x.f.rem=[];afterSchedule();pushReminder('cancelled',x.f.name,'This programme has been cancelled',true);toast('Cancelled · alert sent to subscribers',true);});}
 function deleteFn(id){var x=findFn(id);if(!x)return;openConfirm('Delete this function?','“'+x.f.name+'” will be removed from the schedule. This cannot be undone.','Delete','btn-er',function(){programmes[x.iso]=programmes[x.iso].filter(function(f){return f.id!==id;});afterSchedule();toast('Function deleted');});}
 function endFn(id){var x=findFn(id);if(!x)return;openConfirm('Turn off this event?','“'+x.f.name+'” will be marked ended and hidden in the app for subscribers. You can reactivate it any time.','Turn off event','btn-s',function(){x.f._prev=x.f.status;x.f.status='ended';x.f.rem=[];afterSchedule();pushReminder('cancelled',x.f.name,'This event has ended',true);toast('Event turned off · now shows as ended in the app',true);});}
 function reactivateFn(id){var x=findFn(id);if(!x)return;openConfirm('Reactivate this event?','“'+x.f.name+'” will be active again, shown in the app, and added back to subscribers\u2019 calendars (they\u2019ll be notified).','Yes, reactivate','btn-ok',function(){x.f.status=x.f._prev||'scheduled';afterSchedule();pushReminder('new',x.f.name,'Event is active again · added back to calendar',true);toast('Event reactivated · subscribers notified + calendar updated',true);});}
-function pushReminder(kind,fn,msg,wa){reminders.unshift({id:Date.now(),kind:kind,fn:fn,when:'Just now',msg:msg,ch:wa?['app','wa']:['app'],reach:1248,status:'sent'});}
+function pushReminder(kind,fn,msg,wa){reminders.unshift({id:Date.now(),kind:kind,fn:fn,when:'Just now',msg:msg,ch:wa?['app','wa']:['app'],reach:subscribers.length,status:'sent'});}
 
 /* ═══════════════ VIEW: COMMUNITY PROFILE ═══════════════ */
 function vCommunity(){
@@ -445,12 +445,12 @@ function vCommunity(){
   return ''
   +'<div class="grid" style="grid-template-columns:1.4fr 1fr;align-items:start;">'
   +'<div style="display:flex;flex-direction:column;gap:16px;">'
-    +'<div class="card"><div class="card-h"><div class="ttl">'+sIcon('flower')+'Community identity</div><button class="btn btn-s btn-sm" onclick="toast(\'Identity saved\')">'+sIcon('check')+'Save</button></div>'
+    +'<div class="card"><div class="card-h"><div class="ttl">'+sIcon('flower')+'Community identity</div><button class="btn btn-s btn-sm" onclick="saveCommunity()">'+sIcon('check')+'Save</button></div>'
       +'<div class="grid g2" style="gap:14px;">'
-        +fld('Community name','Jain Community Sammelan')
-        +fld('Recurrence','Annual')
+        +'<div><label class="flbl">Community name</label><input id="c-name" value="'+(community.name||'')+'"/></div>'
+        +'<div><label class="flbl">Recurrence</label><input id="c-recur" value="'+(community.recurrence||'')+'"/></div>'
       +'</div>'
-      +'<label class="flbl" style="margin-top:6px;">About</label><textarea rows="3">'+community.about+'</textarea>'
+      +'<label class="flbl" style="margin-top:6px;">About</label><textarea id="c-about" rows="3">'+(community.about||'')+'</textarea>'
       +'<label class="flbl" style="margin-top:12px;">Logo & cover images</label>'
       +'<div style="display:flex;gap:10px;">'
         +'<div style="width:84px;height:84px;border-radius:14px;background:linear-gradient(135deg,#3D2582,#7C5CBF);display:flex;align-items:center;justify-content:center;color:#fff;">'+sIcon('flower')+'</div>'
@@ -459,21 +459,21 @@ function vCommunity(){
     +'</div>'
     +'<div class="card"><div class="card-h"><div class="ttl">'+sIcon('search')+'Discovery setup</div><span class="chip cp">One-time</span></div>'
       +'<div class="info-box" style="margin-bottom:14px;">'+sIcon('info')+'<div>These attributes decide <b>who can find and subscribe</b> to your community. A subscriber searching by any of these — city, area, venue or guru — will see your community in Invite Karoo.</div></div>'
-      +'<div class="grid g2" style="gap:14px;">'+disc.map(function(d){return '<div><label class="flbl">'+d.lbl+'</label><div style="position:relative;"><input value="'+d.val+'"/></div><div class="hint">'+d.hint+'</div></div>';}).join('')+'</div>'
-      +'<label class="flbl" style="margin-top:12px;">Venue address</label><input value="'+community.venueAddr+'"/>'
-      +'<div style="margin-top:14px;"><button class="btn btn-p btn-sm" onclick="toast(\'Discovery settings updated\')">'+sIcon('check')+'Save discovery setup</button></div>'
+      +'<div class="grid g2" style="gap:14px;">'+disc.map(function(d){return '<div><label class="flbl">'+d.lbl+'</label><div style="position:relative;"><input id="c-'+d.k+'" value="'+(d.val||'')+'"/></div><div class="hint">'+d.hint+'</div></div>';}).join('')+'</div>'
+      +'<label class="flbl" style="margin-top:12px;">Venue address</label><input id="c-venueAddr" value="'+(community.venueAddr||'')+'"/>'
+      +'<div style="margin-top:14px;"><button class="btn btn-p btn-sm" onclick="saveCommunity()">'+sIcon('check')+'Save discovery setup</button></div>'
     +'</div>'
   +'</div>'
   +'<div style="display:flex;flex-direction:column;gap:16px;">'
     +'<div class="card"><div class="card-h"><div class="ttl">'+sIcon('search')+'Search preview</div></div>'
       +'<div class="hint" style="margin-bottom:10px;">How subscribers find you across filters:</div>'
-      +['Community','Venue','Location','Area','Guru'].map(function(f){return '<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--bd);"><span class="chip cp" style="min-width:78px;justify-content:center;">'+f+'</span><span style="font-size:.74rem;color:var(--ink2);">'+({Community:'Jain Community Sammelan',Venue:'Chennai Convention Centre',Location:'Chennai',Area:'Nandambakkam',Guru:'Muni Shri Tarun Sagar Ji'}[f])+'</span></div>';}).join('')
+      +['Community','Venue','Location','Area','Guru'].map(function(f){return '<div style="display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--bd);"><span class="chip cp" style="min-width:78px;justify-content:center;">'+f+'</span><span style="font-size:.74rem;color:var(--ink2);">'+(({Community:community.name,Venue:community.venue,Location:community.city,Area:community.area,Guru:community.guru}[f])||'—')+'</span></div>';}).join('')
     +'</div>'
     +'<div class="card"><div class="card-h"><div class="ttl">'+sIcon('users')+'Reach</div></div>'
-      +statRow('Total subscribers','1,248')
-      +statRow('New this edition','+36')
-      +statRow('Avg. daily check-ins','612')
-      +statRow('Cities reached','7')
+      +statRow('Total subscribers',subsFmt())
+      +statRow('New this edition','+'+subscribers.length)
+      +statRow('Avg. daily check-ins',String(totalCheckins()))
+      +statRow('Cities reached',String(citiesReached()))
     +'</div>'
   +'</div></div>';
 }
@@ -522,9 +522,9 @@ function vSubscribers(){
   var active=subscribers.filter(function(s){return s.status==='active';}).length;
   return ''
   +'<div class="grid g4" style="margin-bottom:18px;">'
-    +miniKpi('users','var(--t1)','var(--t7)','1,248','Total subscribers')
+    +miniKpi('users','var(--t1)','var(--t7)',subsFmt(),'Total subscribers')
     +miniKpi('check','var(--ok1)','#16A34A',active+' / '+subscribers.length,'Active (sample)')
-    +miniKpi('qr','var(--g1)','var(--g5)','612','Avg daily check-ins')
+    +miniKpi('qr','var(--g1)','var(--g5)',String(totalCheckins()),'Avg daily check-ins')
     +miniKpi('bell','var(--in1)','var(--in)','Bulk','App + WhatsApp ready')
   +'</div>'
   +'<div id="bulkBar" style="display:none;background:linear-gradient(135deg,#1A0E3D,#3D2582);border-radius:14px;padding:12px 16px;margin-bottom:14px;align-items:center;gap:12px;color:#fff;">'
@@ -672,7 +672,7 @@ function vAttendance(){
   +'<div class="grid g4" style="margin-bottom:18px;">'
     +miniKpi('qr','var(--ok1)','#16A34A',attendedTodayCount(),'Checked in today')
     +miniKpi('cal','var(--g1)','var(--g5)',todayFns.length,'Functions today')
-    +miniKpi('users','var(--t1)','var(--t7)','1,248','Eligible subscribers')
+    +miniKpi('users','var(--t1)','var(--t7)',subsFmt(),'Eligible subscribers')
     +miniKpi('trend','var(--in1)','var(--in)',Math.round(attendedTodayCount()/totalSubs()*100)+'%','Attendance rate')
   +'</div>'
   +'<div style="display:flex;align-items:center;gap:12px;background:linear-gradient(135deg,#1A0E3D,#3D2582);border-radius:14px;padding:14px 16px;margin-bottom:16px;color:#fff;flex-wrap:wrap;">'
@@ -892,7 +892,7 @@ function setAnalyticsDay(iso){analyticsDay=iso;openEvent=null;renderAttChart();r
 
 /* ═══════════════ VIEW: RSVP MANAGEMENT ═══════════════ */
 var rsvpView='event',rsvpOpen=null,rsvpDay=null;
-function dayRsvp(iso){var total=1248;var seed=0;for(var i=0;i<iso.length;i++)seed+=iso.charCodeAt(i);var responded=Math.round(total*(0.6+(seed%12)/100));var going=Math.round(responded*0.78);var cant=responded-going;var guests=Math.round(going*1.7);return {total:total,responded:responded,going:going,cant:cant,guests:guests,pending:total-responded};}
+function dayRsvp(iso){var total=subscribers.length;var seed=0;for(var i=0;i<iso.length;i++)seed+=iso.charCodeAt(i);var responded=Math.round(total*(0.6+(seed%12)/100));var going=Math.round(responded*0.78);var cant=responded-going;var guests=Math.round(going*1.7);return {total:total,responded:responded,going:going,cant:cant,guests:guests,pending:total-responded};}
 function rsvpDefaultDay(){var u=upcomingDaysWithEvents();for(var i=0;i<u.length;i++){if(u[i].iso===todayIso())return u[i].iso;}return (u[0]&&u[0].iso)||todayIso();}
 function rsvpEvents(){var out=[];editionDays().forEach(function(d){if(new Date(d.y,d.m,d.d)<new Date(TODAY.y,TODAY.m,TODAY.d))return;fnsOn(d.iso).filter(function(f){return f.status!=='cancelled'&&f.status!=='ended';}).forEach(function(f){out.push({f:f,iso:d.iso,idx:d.idx});});});out.sort(function(a,b){return a.iso<b.iso?-1:a.iso>b.iso?1:t24(a.f.time)-t24(b.f.time);});return out;}
 function evRsvpStats(f){var responded=rsvpCount(f);var going=Math.round(responded*0.78);var cant=responded-going;var guests=Math.round(going*1.7);return {responded:responded,going:going,cant:cant,guests:guests};}
@@ -1110,7 +1110,7 @@ function vReminders(){
       +'<label class="flbl">About event <span style="font-weight:400;text-transform:none;color:var(--ink4);">(optional)</span></label>'
       +'<select id="bc-day" onchange="fillBcEvents()"><option value="">General announcement</option>'+upcomingDaysWithEvents().map(function(d){return '<option value="'+d.iso+'">'+d.d+' '+MONTHS[d.m]+' '+d.y+' · Day '+d.idx+(d.iso===todayIso()?' (Today)':'')+'</option>';}).join('')+'</select>'
       +'<select id="bc-ev" style="margin-top:8px;display:none;"></select>'
-      +'<label class="flbl" style="margin-top:12px;">Send to</label><select id="bc-aud"><option>All subscribers (1,248)</option><option>This event\u2019s RSVPs</option><option>Today\u2019s attendees</option><option>Donors only</option></select>'
+      +'<label class="flbl" style="margin-top:12px;">Send to</label><select id="bc-aud"><option>All subscribers</option><option>This event\u2019s RSVPs</option><option>Today\u2019s attendees</option><option>Donors only</option></select>'
       +'<label class="flbl" style="margin-top:12px;">Message</label><textarea id="bc-msg" rows="3" placeholder="e.g. Tonight\u2019s Aarti shifts to 7 PM. Please plan accordingly."></textarea>'
       +'<label class="flbl" style="margin-top:12px;">Channels</label>'
       +'<div style="display:flex;gap:14px;margin:6px 0 14px;"><label style="display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--ink2);cursor:pointer;"><span class="tg on" id="bc-app" onclick="this.classList.toggle(\'on\')"><i></i></span>In-app</label><label style="display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--ink2);cursor:pointer;"><span class="tg on" id="bc-wa" onclick="this.classList.toggle(\'on\')"><i></i></span>WhatsApp</label></div>'
@@ -1158,9 +1158,9 @@ function sendBroadcast(){
   var fnName='General announcement';
   if(evVal){if(evVal.indexOf('day:')===0){var p=evVal.slice(4).split('-');fnName='All events · '+(+p[2])+' '+MONTHS[+p[1]-1];}else{var x=findFn(+evVal);if(x)fnName=x.f.name;}}
   var ch=[];if(app)ch.push('app');if(wa)ch.push('wa');
-  reminders.unshift({id:Date.now(),kind:'reminder',fn:fnName,when:'Just now',msg:msg,ch:ch,reach:1248,status:'sent'});
+  reminders.unshift({id:Date.now(),kind:'reminder',fn:fnName,when:'Just now',msg:msg,ch:ch,reach:subscribers.length,status:'sent'});
   if(current==='reminders')nav('reminders');
-  toast('Broadcast sent to 1,248 · '+(app&&wa?'app + WhatsApp':wa?'WhatsApp':'app'),wa);
+  toast('Broadcast sent · '+(app&&wa?'app + WhatsApp':wa?'WhatsApp':'app'),wa);
 }
 function renderRemAuto(){
   var box=document.getElementById('remAutoList');if(!box)return;
@@ -1297,9 +1297,9 @@ function vSettings(){
   return ''
   +'<div class="grid" style="grid-template-columns:1fr 1fr;align-items:start;">'
   +'<div class="card"><div class="card-h"><div class="ttl">'+sIcon('user')+'Host account</div></div>'
-    +'<div style="display:flex;align-items:center;gap:13px;margin-bottom:16px;"><div class="av-sm" style="width:54px;height:54px;font-size:1.05rem;background:linear-gradient(135deg,#5B3E9E,#2D1B69);">MR</div><div><div style="font-weight:800;font-family:var(--fd);font-size:1.05rem;">Mahesh Ranka</div><div class="mono" style="font-size:.7rem;color:var(--ink3);">+91 98220 11733</div></div></div>'
-    +fld('Full name','Mahesh Ranka')+'<div style="height:12px;"></div>'+fld('Role','Community Host')
-    +'<div class="info-box" style="margin-top:14px;">'+sIcon('info')+'<div>Host access for <b>Jain Community Sammelan</b> was approved by the Invite Karoo Super Admin on 18 Jan 2026.</div></div>'
+    +'<div style="display:flex;align-items:center;gap:13px;margin-bottom:16px;"><div class="av-sm" style="width:54px;height:54px;font-size:1.05rem;background:linear-gradient(135deg,#5B3E9E,#2D1B69);">'+inits(community.name||'H')+'</div><div><div style="font-weight:800;font-family:var(--fd);font-size:1.05rem;">'+(community.name||'Host')+'</div><div class="mono" style="font-size:.7rem;color:var(--ink3);">'+(window.__hostEmail||'')+'</div></div></div>'
+    +fld('Host / Community',community.name||'')+'<div style="height:12px;"></div>'+fld('Role','Community Host')
+    +'<div class="info-box" style="margin-top:14px;">'+sIcon('info')+'<div>Host access for <b>'+(community.name||'this community')+'</b> is approved by the Invite Karoo Super Admin.</div></div>'
   +'</div>'
   +'<div style="display:flex;flex-direction:column;gap:16px;">'
     +'<div class="card"><div class="card-h"><div class="ttl">'+sIcon('bell')+'Notifications</div></div>'
@@ -1357,7 +1357,7 @@ function saveFn(){
     var targets=[dt];document.querySelectorAll('#m-rep .chip.cp').forEach(function(c){var iv=c.getAttribute('data-iso');if(targets.indexOf(iv)===-1)targets.push(iv);});
     targets.forEach(function(tIso){var o={};for(var k in obj)o[k]=obj[k];o.id=++_fnId;o.status='scheduled';if(!programmes[tIso])programmes[tIso]=[];programmes[tIso].push(o);});
     pushReminder('new',name,'New event added on '+targets.length+' day(s) · auto-added to calendar',true);
-    toast(targets.length>1?('Event added to '+targets.length+' days · subscribers notified + calendars updated'):'Event created · pushed to 1,248 subscribers + added to their calendar',true);
+    toast(targets.length>1?('Event added to '+targets.length+' days · subscribers notified + calendars updated'):'Event created · pushed to subscribers + added to their calendar',true);
   }
   closeModal();schedSel=dt;if(current!=='schedule')nav('schedule');else afterSchedule();
 }
