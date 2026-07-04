@@ -9,6 +9,24 @@
 
   function $(id) { return document.getElementById(id); }
 
+  // Boot veil — cover the login screen until Firebase resolves the persisted
+  // session, so a signed-in host doesn't see a login flash on refresh.
+  (function () {
+    try {
+      var st = document.createElement('style');
+      st.textContent = '@keyframes bootspin{to{transform:rotate(360deg)}}';
+      document.head.appendChild(st);
+      var v = document.createElement('div'); v.id = 'boot-veil';
+      v.style.cssText = 'position:fixed;inset:0;z-index:99999;background:linear-gradient(160deg,#1A0E3D,#3D2582,#7C5CBF);display:flex;align-items:center;justify-content:center;';
+      v.innerHTML = '<div style="text-align:center;color:#fff;font-family:Fraunces,Georgia,serif;"><div style="font-size:2rem;font-weight:900;letter-spacing:-.5px;">Invite <span style="color:#F5C87A;">Karoo</span></div><div style="margin:16px auto 0;width:26px;height:26px;border:3px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:bootspin .8s linear infinite;"></div></div>';
+      (document.body || document.documentElement).appendChild(v);
+    } catch (e) {}
+  })();
+  var _veilGone = false;
+  function hideVeil() { if (_veilGone) return; _veilGone = true; var v = $('boot-veil'); if (!v) return; v.style.transition = 'opacity .25s'; v.style.opacity = '0'; setTimeout(function () { if (v.parentNode) v.parentNode.removeChild(v); }, 260); }
+  // Safety net: never trap the user behind the veil if auth never resolves.
+  setTimeout(hideVeil, 6000);
+
   function applyData(d) {
     community = d.community;                 // eslint-disable-line
     edition = d.edition;                     // eslint-disable-line
@@ -35,7 +53,7 @@
     if ($('tb-s')) $('tb-s').textContent = 'Today · ' + WD[t.getDay()] + ', ' + t.getDate() + ' ' + MONTHL[t.getMonth()] + ' ' + t.getFullYear();
   }
 
-  window.__enter = function (d) { applyData(d); enterApp(); };
+  window.__enter = function (d) { applyData(d); enterApp(); hideVeil(); };
 
   window.__reload = async function () {
     if (!__uid) return;
@@ -85,7 +103,7 @@
 
   window.saveFn = async function () {
     var name = ($('m-name').value || '').trim(); if (!name) { toast('Enter an event name'); return; }
-    var p = { title: name, date: $('m-date').value || todayIso(), time: $('m-time').value || '9:00 AM', dur: $('m-dur') ? $('m-dur').value : '', venue: $('m-venue') ? $('m-venue').value : '', description: $('m-desc') ? $('m-desc').value : '', youtube: $('m-yt') ? $('m-yt').value : '', published: true, status: 'scheduled' };
+    var p = { title: name, date: $('m-date').value || todayIso(), time: (typeof time12==='function'?time12($('m-time').value):($('m-time').value)) || '9:00 AM', dur: $('m-dur') ? $('m-dur').value : '', venue: $('m-venue') ? $('m-venue').value : '', description: $('m-desc') ? $('m-desc').value : '', youtube: $('m-yt') ? $('m-yt').value : '', published: true, status: 'scheduled' };
     try {
       if (typeof editingFn !== 'undefined' && editingFn) { var did = fnDocId(editingFn); if (did) await window.__fb.updateProgram(did, p); toast('Event updated · subscribers re-notified', true); }
       else { await window.__fb.addProgram(__community, p); window.__fb.pushNotify('New programme: ' + name, (__community.name || '') + ' · ' + p.date + (p.time ? ' · ' + p.time : '')); toast('Event created · pushed to subscribers + added to their calendar', true); }
@@ -252,8 +270,14 @@
     window.__fb.watchAuth(async function (u) {
       if (u && !__uid) {
         __uid = u.uid;
-        try { var d = await window.__fb.loadAll(__uid); if (d) window.__enter(d); } catch (e) {}
+        try { var d = await window.__fb.loadAll(__uid); if (d) { window.__enter(d); return; } } catch (e) {}
+        hideVeil();
+      } else if (!u) {
+        // No persisted session → reveal the login screen.
+        hideVeil();
       }
     });
+  } else {
+    hideVeil();
   }
 })();

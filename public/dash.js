@@ -188,6 +188,9 @@ function modulesCount(m){return moduleList.filter(function(md){return permLevel(
 /* ═══════════════ HELPERS ═══════════════ */
 function iso(y,m,d){return y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');}
 function todayIso(){return iso(TODAY.y,TODAY.m,TODAY.d);}
+// Time helpers: <input type=time> uses 24h "HH:MM"; we store/display 12h "h:MM AM/PM".
+function time24(s){s=String(s||'').trim();if(/^\d{1,2}:\d{2}$/.test(s)&&s.indexOf('AM')<0&&s.indexOf('PM')<0){var q=s.split(':');return String(+q[0]).padStart(2,'0')+':'+q[1];}var m=/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(s);if(!m)return '07:00';var h=+m[1]%12;if(/PM/i.test(m[3]))h+=12;return String(h).padStart(2,'0')+':'+m[2];}
+function time12(s){s=String(s||'').trim();var m=/^(\d{1,2}):(\d{2})/.exec(s);if(!m)return s||'7:00 AM';if(/AM|PM/i.test(s))return s.toUpperCase().replace(/\s+/,' ');var h=+m[1],ap=h>=12?'PM':'AM',h12=h%12;if(h12===0)h12=12;return h12+':'+m[2]+' '+ap;}
 function fnsOn(isoStr){return programmes[isoStr]||[];}
 function statusMeta(s){return {
   live:{cls:'cg',dot:'#16A34A',lbl:'● Live now'},
@@ -245,7 +248,7 @@ function nav(id){
 }
 function enterApp(){document.getElementById('login').classList.add('hide');document.getElementById('app').classList.remove('hide');buildNav();nav('overview');}
 
-function toast(msg,wa){var t=document.getElementById('toast');t.innerHTML=(wa?sIcon('wa'):sIcon('check'))+'<span>'+msg+'</span>';t.classList.add('on');t.className='toast on'+(wa?' wa':'');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('on');},2800);}
+function toast(msg,wa){var t=document.getElementById('toast');t.innerHTML=(wa?sIcon('wa'):sIcon('bell'))+'<span>'+msg+'</span>';t.classList.add('on');t.className='toast on'+(wa?' wa':'');clearTimeout(t._t);t._t=setTimeout(function(){t.classList.remove('on');},2800);}
 
 /* ═══════════════ VIEW: OVERVIEW ═══════════════ */
 function vOverview(){
@@ -313,7 +316,9 @@ var DEMO_NOW_MIN=7*60+45; // demo "now" = 7:45 AM
 var _cdInt=null;
 function edStr(o){return o.d+' '+MONTHS[o.m]+' '+o.y;}
 function daysDone(){var t=new Date(TODAY.y,TODAY.m,TODAY.d);var c=0;editionDays().forEach(function(d){if(new Date(d.y,d.m,d.d)<t)c++;});return c;}
-function editionDays(){var out=[];var s=edition.start;for(var i=0;i<edition.days;i++){var dt=new Date(s.y,s.m,s.d+i);out.push({iso:iso(dt.getFullYear(),dt.getMonth(),dt.getDate()),y:dt.getFullYear(),m:dt.getMonth(),d:dt.getDate(),wd:WD[dt.getDay()],idx:i+1});}return out;}
+function editionDays(){var out=[];var seen={};var s=edition.start;for(var i=0;i<edition.days;i++){var dt=new Date(s.y,s.m,s.d+i);var isoS=iso(dt.getFullYear(),dt.getMonth(),dt.getDate());seen[isoS]=1;out.push({iso:isoS,y:dt.getFullYear(),m:dt.getMonth(),d:dt.getDate(),wd:WD[dt.getDay()]});}
+  try{Object.keys(programmes||{}).forEach(function(k){if(k&&!seen[k]&&programmes[k]&&programmes[k].length){var p=String(k).split('-');var yy=+p[0],mm=+p[1]-1,dd=+p[2];if(!isNaN(yy)&&!isNaN(mm)&&!isNaN(dd)){seen[k]=1;out.push({iso:k,y:yy,m:mm,d:dd,wd:WD[new Date(yy,mm,dd).getDay()]});}}});}catch(e){}
+  out.sort(function(a,b){return a.iso<b.iso?-1:a.iso>b.iso?1:0;});out.forEach(function(o,ix){o.idx=ix+1;});return out;}
 function vSchedule(){
   var d=editionDays();var done=daysDone();var pct=Math.round((done)/edition.days*100);
   return ''
@@ -1342,7 +1347,7 @@ function openFnModal(id,isoStr){
   openModal('<div class="modal wide"><div class="modal-h"><div class="ttl">'+(editingFn?'Edit event':'Add event')+'</div><div class="x" onclick="closeModal()">'+sIcon('x')+'</div></div>'
     +'<div class="modal-b">'
       +'<label class="flbl">Event name <span class="req">*</span></label><input id="m-name" value="'+(f.name||'')+'" placeholder="e.g. Morning Pravachan"/>'
-      +'<div class="grid g3" style="gap:12px;margin-top:12px;"><div><label class="flbl">Date</label><input id="m-date" type="date" value="'+editingIso+'"/></div><div><label class="flbl">Time</label><input id="m-time" value="'+(f.time||'7:00 AM')+'" placeholder="7:00 AM"/></div><div><label class="flbl">Duration</label><input id="m-dur" value="'+(f.dur||'2 hr')+'"/></div></div>'
+      +'<div class="grid g3" style="gap:12px;margin-top:12px;"><div><label class="flbl">Date</label><input id="m-date" type="date" value="'+editingIso+'"/></div><div><label class="flbl">Time</label><input id="m-time" type="time" value="'+time24(f.time||'07:00')+'"/></div><div><label class="flbl">Duration</label><input id="m-dur" value="'+(f.dur||'2 hr')+'"/></div></div>'
       +'<label class="flbl" style="margin-top:12px;">Venue / hall</label><input id="m-venue" value="'+(f.venue||'')+'"/>'
       +'<label class="flbl" style="margin-top:12px;">Description</label><textarea id="m-desc" rows="2" placeholder="What happens in this event…">'+(f.desc||'')+'</textarea>'
       +'<div class="grid g2" style="gap:12px;margin-top:12px;">'
