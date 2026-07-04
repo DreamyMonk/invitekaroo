@@ -182,6 +182,16 @@
   if (_trc) window.toggleRemCh = function (id, ch) { _trc(id, ch); persistRules(); };
   if (_sra) window.saveRemAuto = function () { _sra(); persistRules(); };
 
+  // Keep the topbar "Today · …" real on the Overview (nav() would blank it).
+  var _nav = window.nav;
+  if (_nav) window.nav = function (id) {
+    _nav(id);
+    if (id === 'overview') {
+      var t = new Date(), e = $('tb-s');
+      if (e) e.textContent = 'Today · ' + WD[t.getDay()] + ', ' + t.getDate() + ' ' + MONTHL[t.getMonth()] + ' ' + t.getFullYear();
+    }
+  };
+
   // Auto-enter if already signed in (session persists)
   if (window.__fb && window.__fb.watchAuth) {
     window.__fb.watchAuth(async function (u) {

@@ -207,12 +207,12 @@ function attendedTodayCount(){var set={};Object.keys(attLog).forEach(function(f)
 /* ═══════════════ NAV / ROUTER ═══════════════ */
 var NAVCFG=[
   {sec:'Manage'},
-  {id:'overview',label:'Overview',ic:'grid',t:'Overview',s:'Today · Friday, 22 May 2026'},
-  {id:'schedule',label:'Schedule',ic:'cal',t:'Schedule',s:'Day-wise programmes · Edition 2',badge:'6'},
+  {id:'overview',label:'Overview',ic:'grid',t:'Overview',s:''},
+  {id:'schedule',label:'Schedule',ic:'cal',t:'Schedule',s:'Day-wise programmes',badge:'6'},
   {id:'community',label:'Community Profile',ic:'flower',t:'Community Profile',s:'Identity & discovery setup'},
   {id:'editions',label:'Editions',ic:'layers',t:'Editions',s:'Edition lifecycle & history'},
   {sec:'People'},
-  {id:'subscribers',label:'Subscribers',ic:'users',t:'Subscribers',s:subsFmt()+' active subscribers'},
+  {id:'subscribers',label:'Subscribers',ic:'users',t:'Subscribers',s:'Active subscribers'},
   {id:'attendance',label:'Attendance & QR',ic:'qr',t:'Attendance & QR',s:'Function-wise check-in'},
   {id:'analytics',label:'Analytics',ic:'chart',t:'Analytics',s:'Attendance & engagement insights'},
   {id:'rsvp',label:'RSVP',ic:'check',t:'RSVP Management',s:'Confirmations & headcount for arrangements'},
