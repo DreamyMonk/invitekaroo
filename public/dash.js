@@ -211,7 +211,7 @@ function attendedTodayCount(){var set={};Object.keys(attLog).forEach(function(f)
 var NAVCFG=[
   {sec:'Manage'},
   {id:'overview',label:'Overview',ic:'grid',t:'Overview',s:''},
-  {id:'schedule',label:'Schedule',ic:'cal',t:'Schedule',s:'Day-wise programmes',badge:'6'},
+  {id:'schedule',label:'Schedule',ic:'cal',t:'Schedule',s:'Day-wise programmes'},
   {id:'community',label:'Community Profile',ic:'flower',t:'Community Profile',s:'Identity & discovery setup'},
   {id:'editions',label:'Editions',ic:'layers',t:'Editions',s:'Edition lifecycle & history'},
   {sec:'People'},
@@ -222,7 +222,7 @@ var NAVCFG=[
   {id:'donations',label:'Donations',ic:'rupee',t:'Donations',s:'Contributions ledger'},
   {id:'rewards',label:'Rewards',ic:'gift',t:'Rewards',s:'Top devotees & gifts'},
   {sec:'Comms'},
-  {id:'reminders',label:'Reminders',ic:'bell',t:'Reminders & Alerts',s:'App + WhatsApp dispatch',badge:'3',badgeRed:true},
+  {id:'reminders',label:'Reminders',ic:'bell',t:'Reminders & Alerts',s:'App + WhatsApp dispatch'},
   {sec:'Admin'},
   {id:'access',label:'Access Manager',ic:'user',t:'Access Manager',s:'Team access & module permissions'},
   {id:'settings',label:'Settings',ic:'gear',t:'Settings',s:'Host account & preferences'}

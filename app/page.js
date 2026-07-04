@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { db, auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { collection, doc, getDoc, getDocs, addDoc, updateDoc, deleteDoc, query, where, serverTimestamp } from "firebase/firestore";
-import { sendEmailOtp, verifyEmailOtp, getMyCommunity, addProgram, updateProgram, deleteProgram, addSub, updateSubDoc, deleteSubDoc, updateCommunity, pushNotify } from "@/lib/db";
+import { sendEmailOtp, verifyEmailOtp, getMyCommunity, createCommunity, addProgram, updateProgram, deleteProgram, addSub, updateSubDoc, deleteSubDoc, updateCommunity, pushNotify } from "@/lib/db";
 
 // Exact reference shell (login + app + containers). Only the login field is
 // switched to email and the button to liveSignIn() — per the chosen approach.
@@ -68,8 +68,17 @@ const SHELL = `
 function isoOf(v) { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(v || ""); return m ? { y: +m[1], m: +m[2] - 1, d: +m[3] } : null; }
 
 async function loadAll(uid) {
-  const community = await getMyCommunity(uid);
-  if (!community) return null;
+  let community = await getMyCommunity(uid);
+  if (!community) {
+    // Brand-new host with no community yet → provision a starter one so the
+    // account can sign in and fill in the details from the Community screen.
+    const email = (auth.currentUser && auth.currentUser.email) || "";
+    const base = email ? email.split("@")[0].replace(/[^a-zA-Z0-9]+/g, " ").trim() : "";
+    const name = base ? base.charAt(0).toUpperCase() + base.slice(1) : "My Community";
+    try { community = await createCommunity(uid, { name, editionLabel: "Edition 1", editionStatus: "active" }); }
+    catch (e) { return null; }
+    if (!community) return null;
+  }
   const cid = community.id;
   const grab = async (name) => {
     try { const s = await getDocs(collection(db, "communities", cid, name)); return s.docs.map((d) => ({ id: d.id, ...d.data() })); }
