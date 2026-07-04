@@ -27,6 +27,22 @@
   // Safety net: never trap the user behind the veil if auth never resolves.
   setTimeout(hideVeil, 6000);
 
+  // Busy overlay — shown while a Firestore write/read is in flight so the host
+  // knows the action is processing (e.g. a delete isn't lost, just saving).
+  function busy(on, label) {
+    var b = $('busy-veil');
+    if (on) {
+      if (!b) {
+        b = document.createElement('div'); b.id = 'busy-veil';
+        b.style.cssText = 'position:fixed;inset:0;z-index:90000;background:rgba(26,14,61,.26);display:flex;align-items:center;justify-content:center;';
+        b.innerHTML = '<div style="background:#fff;border-radius:14px;padding:15px 22px;box-shadow:0 14px 44px rgba(0,0,0,.20);display:flex;align-items:center;gap:12px;"><div style="width:20px;height:20px;border:3px solid rgba(60,37,130,.22);border-top-color:#3D2582;border-radius:50%;animation:bootspin .8s linear infinite;"></div><span id="busy-label" style="font-size:.8rem;font-weight:700;color:#3D2582;font-family:Inter,system-ui,sans-serif;">Working…</span></div>';
+        (document.body || document.documentElement).appendChild(b);
+      }
+      var l = $('busy-label'); if (l) l.textContent = label || 'Working…'; b.style.display = 'flex';
+    } else if (b) { b.style.display = 'none'; }
+  }
+  window.busy = busy;
+
   function applyData(d) {
     community = d.community;                 // eslint-disable-line
     edition = d.edition;                     // eslint-disable-line
@@ -57,7 +73,9 @@
 
   window.__reload = async function () {
     if (!__uid) return;
+    busy(true, 'Updating…');
     try { var d = await window.__fb.loadAll(__uid); applyData(d); if (typeof current !== 'undefined' && current) nav(current); } catch (e) {}
+    finally { busy(false); }
   };
 
   // ── Login: exact UI, email OTP underneath. "Send code" sits beside the email
@@ -68,12 +86,14 @@
     if (!email || email.indexOf('@') < 1) { if (msg) msg.textContent = 'Enter a valid email'; return; }
     window.__hostEmail = email;
     if (send) { send.textContent = 'Sending…'; send.disabled = true; }
+    busy(true, 'Sending code…');
     try {
       await window.__fb.sendOtp(email); __sent = true;
       if (msg) msg.textContent = 'Code sent to ' + email;
       if (send) send.textContent = 'Resend';
       var b0 = document.querySelector('.lg-otp input'); if (b0) b0.focus();
     } catch (e) { if (msg) msg.textContent = String(e.message || e); if (send) send.textContent = 'Send code'; }
+    finally { busy(false); }
     if (send) send.disabled = false;
   };
 
@@ -86,12 +106,13 @@
     if (!__sent) { if (msg) msg.textContent = 'Tap “Send code” first'; return; }
     if (code.length < 6) { if (msg) msg.textContent = 'Enter the 6-digit code'; return; }
     if (btn) { btn.textContent = 'Verifying…'; btn.disabled = true; }
+    busy(true, 'Signing in…');
     try {
       __uid = await window.__fb.verifyOtp(email, code);
       var d = await window.__fb.loadAll(__uid);
-      if (!d) { if (msg) msg.textContent = 'No community yet for this host — create one first.'; if (btn) { btn.textContent = 'Sign in'; btn.disabled = false; } return; }
-      window.__enter(d);
-    } catch (e) { if (msg) msg.textContent = String(e.message || e); if (btn) { btn.textContent = 'Sign in'; btn.disabled = false; } }
+      if (!d) { busy(false); if (msg) msg.textContent = 'No community yet for this host — create one first.'; if (btn) { btn.textContent = 'Sign in'; btn.disabled = false; } return; }
+      busy(false); window.__enter(d);
+    } catch (e) { busy(false); if (msg) msg.textContent = String(e.message || e); if (btn) { btn.textContent = 'Sign in'; btn.disabled = false; } }
   };
 
   // logout → back to login
