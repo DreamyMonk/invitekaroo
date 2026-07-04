@@ -6,10 +6,13 @@ import { NextResponse } from "next/server";
 // → Generate new private key), pasted as one line.
 export async function POST(req) {
   try {
-    const { title, body } = await req.json();
+    const { title, body, cid } = await req.json();
     if (!title) {
       return NextResponse.json({ ok: false, error: "title required" }, { status: 400 });
     }
+    // Scope the push to this community's subscribers only. Fall back to the
+    // legacy global topic if no community id was supplied.
+    const topic = cid ? `community_${cid}` : "programs";
     const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
     if (!raw) {
       return NextResponse.json(
@@ -22,7 +25,7 @@ export async function POST(req) {
       admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
     }
     const id = await admin.messaging().send({
-      topic: "programs",
+      topic,
       notification: { title, body: body || "" },
       android: {
         priority: "high",
