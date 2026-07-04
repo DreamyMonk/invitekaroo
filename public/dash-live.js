@@ -18,7 +18,7 @@
       document.head.appendChild(st);
       var v = document.createElement('div'); v.id = 'boot-veil';
       v.style.cssText = 'position:fixed;inset:0;z-index:99999;background:linear-gradient(160deg,#1A0E3D,#3D2582,#7C5CBF);display:flex;align-items:center;justify-content:center;';
-      v.innerHTML = '<div style="text-align:center;color:#fff;font-family:Fraunces,Georgia,serif;"><div style="font-size:2rem;font-weight:900;letter-spacing:-.5px;">Invite <span style="color:#F5C87A;">Karoo</span></div><div style="margin:16px auto 0;width:26px;height:26px;border:3px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:bootspin .8s linear infinite;"></div></div>';
+      v.innerHTML = '<div style="text-align:center;"><div style="width:120px;margin:0 auto;background:#fff;border-radius:20px;padding:12px;box-shadow:0 10px 34px rgba(0,0,0,.28);"><img src="/logo.jpg" alt="Invite Karoo" style="width:100%;display:block;border-radius:10px;"/></div><div style="margin:18px auto 0;width:26px;height:26px;border:3px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:bootspin .8s linear infinite;"></div></div>';
       (document.body || document.documentElement).appendChild(v);
     } catch (e) {}
   })();

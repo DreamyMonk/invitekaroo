@@ -12,8 +12,7 @@ const SHELL = `
   <div class="lg-glow" style="top:-140px;left:50%;transform:translateX(-50%);width:540px;height:400px;background:radial-gradient(circle,rgba(124,92,191,.16),transparent 70%);"></div>
   <div class="lg-glow" style="bottom:-120px;right:-80px;width:380px;height:380px;background:radial-gradient(circle,rgba(245,166,35,.1),transparent 70%);"></div>
   <div class="lg-card">
-    <div class="lg-mk"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.5"/><path d="M12 9.5c0-2 1.5-3.5 0-5.5-1.5 2-1.5 3.5 0 5.5M12 14.5c0 2-1.5 3.5 0 5.5 1.5-2 1.5-3.5 0-5.5M9.5 12c-2 0-3.5 1.5-5.5 0 2-1.5 3.5-1.5 5.5 0M14.5 12c2 0 3.5-1.5 5.5 0-2 1.5-3.5 1.5-5.5 0"/></svg></div>
-    <div class="lg-wm">Invite <b>Karoo</b></div>
+    <div style="width:150px;margin:0 auto 10px;background:#fff;border-radius:22px;padding:14px;box-shadow:0 10px 34px rgba(0,0,0,.12);"><img src="/logo.jpg" alt="Invite Karoo" style="width:100%;display:block;border-radius:12px;"/></div>
     <div class="lg-tag">Community Host</div>
     <div class="lg-div"></div>
     <div class="field"><label>Email</label><div style="display:flex;gap:8px;align-items:stretch;"><div class="ip-wrap" style="flex:1;min-width:0;"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/></svg><input id="lg-email" type="email" class="mono" placeholder="you@example.com" style="letter-spacing:.3px;"/></div><button id="lg-send" class="btn btn-s" onclick="liveSendCode()" style="white-space:nowrap;flex-shrink:0;">Send code</button></div></div>
@@ -29,7 +28,7 @@ const SHELL = `
   <aside class="side">
     <div class="side-top">
       <div class="side-brand">
-        <div class="mk"><svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></div>
+        <div class="mk" style="background:#fff;overflow:hidden;padding:0;"><img src="/logo.jpg" alt="Invite Karoo" style="width:100%;height:100%;object-fit:cover;object-position:center 32%;"/></div>
         <div><div class="nm">Invite <b>Karoo</b></div><div class="rl">Community Host</div></div>
       </div>
       <div class="comm-switch" onclick="nav('community')">
