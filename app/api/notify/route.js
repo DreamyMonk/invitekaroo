@@ -24,7 +24,18 @@ export async function POST(req) {
     const id = await admin.messaging().send({
       topic: "programs",
       notification: { title, body: body || "" },
-      android: { priority: "high", notification: { channelId: "ik_default" } },
+      android: {
+        priority: "high",
+        notification: {
+          channelId: "ik_default",
+          sound: "default",
+          defaultSound: true,
+          notificationPriority: "PRIORITY_HIGH",
+          defaultVibrateTimings: true,
+          visibility: "PUBLIC",
+        },
+      },
+      apns: { payload: { aps: { sound: "default" } } },
       data: { type: "program" },
     });
     return NextResponse.json({ ok: true, id });
