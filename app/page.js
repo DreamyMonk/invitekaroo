@@ -107,11 +107,13 @@ async function loadAll(uid) {
     };
   });
 
-  // edition
-  const es = isoOf(community.editionStart), ee = isoOf(community.editionEnd);
+  // edition — start/end must never be null (render does edition.start.y)
+  const _t = new Date(); const todayObj = { y: _t.getFullYear(), m: _t.getMonth(), d: _t.getDate() };
+  const es = isoOf(community.editionStart) || todayObj;
+  const ee = isoOf(community.editionEnd) || es;
   let days = Number(community.editionDays || 0);
-  if (!days && es && ee) days = Math.round((new Date(ee.y, ee.m, ee.d) - new Date(es.y, es.m, es.d)) / 86400000) + 1;
-  const edition = { label: community.editionLabel || "Edition", start: es || null, end: ee || null, days: days || Object.keys(programmes).length || 1, status: community.editionStatus || "active" };
+  if (!days) days = Math.max(1, Math.round((new Date(ee.y, ee.m, ee.d) - new Date(es.y, es.m, es.d)) / 86400000) + 1);
+  const edition = { label: community.editionLabel || "Edition 1", start: es, end: ee, days: days, status: community.editionStatus || "active" };
 
   // attLog: fnId -> [subIndex] (by matching attendance.programme → today's function names)
   const attLog = {};

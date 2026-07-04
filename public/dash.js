@@ -453,8 +453,14 @@ function vCommunity(){
       +'<label class="flbl" style="margin-top:6px;">About</label><textarea id="c-about" rows="3">'+(community.about||'')+'</textarea>'
       +'<label class="flbl" style="margin-top:12px;">Logo & cover images</label>'
       +'<div style="display:flex;gap:10px;">'
-        +'<div style="width:84px;height:84px;border-radius:14px;background:linear-gradient(135deg,#3D2582,#7C5CBF);display:flex;align-items:center;justify-content:center;color:#fff;">'+sIcon('flower')+'</div>'
-        +'<div style="flex:1;height:84px;border:1.5px dashed var(--bd2);border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ink4);cursor:pointer;gap:4px;">'+sIcon('img')+'<span style="font-size:.66rem;font-weight:600;">Upload cover photos</span></div>'
+        +'<label id="logo-tile" title="Upload logo" style="width:84px;height:84px;border-radius:14px;overflow:hidden;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;'
+          +(community.logo?'background:#fff center/cover no-repeat url(\''+community.logo+'\');':'background:linear-gradient(135deg,#3D2582,#7C5CBF);')+'">'
+          +(community.logo?'':sIcon('img'))
+          +'<input type="file" accept="image/*" style="display:none" onchange="uploadImg(this,\'logo\')"/></label>'
+        +'<label id="cover-tile" title="Upload cover" style="flex:1;height:84px;border-radius:14px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--ink4);gap:4px;'
+          +(community.cover?'border:1.5px solid var(--bd2);background:#fff center/cover no-repeat url(\''+community.cover+'\');':'border:1.5px dashed var(--bd2);')+'">'
+          +(community.cover?'':sIcon('img')+'<span style="font-size:.66rem;font-weight:600;">Upload cover photos</span>')
+          +'<input type="file" accept="image/*" style="display:none" onchange="uploadImg(this,\'cover\')"/></label>'
       +'</div>'
     +'</div>'
     +'<div class="card"><div class="card-h"><div class="ttl">'+sIcon('search')+'Discovery setup</div><span class="chip cp">One-time</span></div>'
@@ -482,35 +488,41 @@ function statRow(l,v){return '<div style="display:flex;align-items:center;justif
 
 /* ═══════════════ VIEW: EDITIONS ═══════════════ */
 function vEditions(){
-  var done=11, total=24, pct=Math.round(done/total*100);
+  var funcs=Object.keys(programmes).reduce(function(a,k){return a+(programmes[k]?programmes[k].length:0);},0);
+  var s=edition.start, e=edition.end, total=edition.days||1;
+  var sd=new Date(s.y,s.m,s.d), ed=new Date(e.y,e.m,e.d), now=new Date(); now.setHours(0,0,0,0);
+  var done=Math.min(total,Math.max(0,Math.round((now-sd)/86400000)+1));
+  var left=Math.max(0,total-done);
+  var span=edStr(s)+' – '+edStr(e)+' · '+total+' day'+(total>1?'s':'');
+  var stChip=edition.status==='active'
+    ? '<span class="chip cg" style="background:rgba(22,163,74,.25);color:#86EFAC;border-color:transparent;"><span style="width:5px;height:5px;border-radius:50%;background:#4ADE80;display:inline-block;"></span>Active</span>'
+    : '<span class="chip cn">'+(edition.status||'Draft')+'</span>';
+  var eName=(community.editionLabel||edition.label||'Edition');
   return ''
   +'<div class="grid" style="grid-template-columns:1.3fr 1fr;align-items:start;">'
   +'<div style="display:flex;flex-direction:column;gap:16px;">'
     +'<div class="card" style="background:linear-gradient(135deg,#1A0E3D,#3D2582);border:none;color:#fff;">'
-      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;"><div><span class="chip cg" style="background:rgba(22,163,74,.25);color:#86EFAC;border-color:transparent;"><span style="width:5px;height:5px;border-radius:50%;background:#4ADE80;display:inline-block;"></span>Active</span><div class="disp" style="font-size:1.4rem;font-weight:800;margin-top:8px;">Edition 2</div><div style="font-size:.72rem;color:rgba(255,255,255,.6);">20 May – 28 May 2026 · 9 days</div></div>'
-        +'<button class="btn btn-gold btn-sm" onclick="toast(\'Edition settings\')">'+sIcon('edit')+'Edit</button></div>'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;"><div>'+stChip+'<div class="disp" style="font-size:1.4rem;font-weight:800;margin-top:8px;">'+eName+'</div><div style="font-size:.72rem;color:rgba(255,255,255,.6);">'+span+'</div></div>'
+        +'<button class="btn btn-gold btn-sm" onclick="nav(\'community\')">'+sIcon('edit')+'Edit</button></div>'
       +'<div style="display:flex;gap:9px;">'
-        +'<div style="flex:1;background:rgba(255,255,255,.1);border-radius:11px;padding:11px;text-align:center;"><div class="mono" style="font-size:1.3rem;font-weight:700;">3</div><div style="font-size:.56rem;color:rgba(255,255,255,.6);">Days done</div></div>'
-        +'<div style="flex:1;background:rgba(255,255,255,.1);border-radius:11px;padding:11px;text-align:center;"><div class="mono" style="font-size:1.3rem;font-weight:700;color:#FDE68A;">6</div><div style="font-size:.56rem;color:rgba(255,255,255,.6);">Days left</div></div>'
-        +'<div style="flex:1;background:rgba(255,255,255,.1);border-radius:11px;padding:11px;text-align:center;"><div class="mono" style="font-size:1.3rem;font-weight:700;">'+total+'</div><div style="font-size:.56rem;color:rgba(255,255,255,.6);">Functions</div></div>'
+        +'<div style="flex:1;background:rgba(255,255,255,.1);border-radius:11px;padding:11px;text-align:center;"><div class="mono" style="font-size:1.3rem;font-weight:700;">'+done+'</div><div style="font-size:.56rem;color:rgba(255,255,255,.6);">Days done</div></div>'
+        +'<div style="flex:1;background:rgba(255,255,255,.1);border-radius:11px;padding:11px;text-align:center;"><div class="mono" style="font-size:1.3rem;font-weight:700;color:#FDE68A;">'+left+'</div><div style="font-size:.56rem;color:rgba(255,255,255,.6);">Days left</div></div>'
+        +'<div style="flex:1;background:rgba(255,255,255,.1);border-radius:11px;padding:11px;text-align:center;"><div class="mono" style="font-size:1.3rem;font-weight:700;">'+funcs+'</div><div style="font-size:.56rem;color:rgba(255,255,255,.6);">Functions</div></div>'
       +'</div></div>'
-    +'<div class="card"><div class="card-h"><div class="ttl">'+sIcon('refresh')+'Next edition</div><span class="chip ci">in 135 days</span></div>'
-      +'<div style="font-size:.92rem;font-weight:700;color:var(--ink);">Edition 3 · Oct–Dec 2026</div>'
-      +'<div class="mono" style="font-size:.7rem;color:var(--ink3);margin-top:3px;">'+nextEdition.text+'</div>'
-      +'<div class="hint" style="margin-top:6px;">Subscribers stay subscribed across editions and are auto-notified 2 weeks before this begins.</div>'
-      +'<button class="btn btn-s btn-sm" style="margin-top:12px;" onclick="toast(\'Plan next edition\')">'+sIcon('plus')+'Plan next edition</button>'
+    +'<div class="card"><div class="card-h"><div class="ttl">'+sIcon('refresh')+'Next edition</div></div>'
+      +'<div class="empty" style="padding:14px 0;"><div class="t">No upcoming edition planned</div><div class="s">Subscribers stay subscribed across editions and are auto-notified 2 weeks before a new one begins. Use the form to create the next one.</div></div>'
     +'</div>'
     +'<div class="card"><div class="card-h"><div class="ttl">'+sIcon('clock')+'Past editions</div></div>'
-      +'<div style="display:flex;align-items:center;gap:11px;padding:10px 0;"><div style="width:9px;height:9px;border-radius:50%;background:var(--ink4);"></div><div style="flex:1;"><div style="font-size:.8rem;font-weight:700;color:var(--ink);">Edition 1 · Jan–Mar 2025</div><div class="mono" style="font-size:.62rem;color:var(--ink4);">15 Jan – 18 Mar 2025 · 63 days · SPP Gardens</div></div><span class="chip cn">Ended</span></div>'
+      +'<div class="empty" style="padding:14px 0;"><div class="t">No past editions yet</div><div class="s">Completed editions will be archived here.</div></div>'
     +'</div>'
   +'</div>'
   +'<div class="card"><div class="card-h"><div class="ttl">'+sIcon('layers')+'Create new edition</div></div>'
     +'<div class="info-box" style="margin-bottom:14px;">'+sIcon('info')+'<div>An edition is one date-ranged run of your community (a festival, a 180-day satsang season, etc.). Set the dates and the day-wise schedule opens up for that span.</div></div>'
-    +'<label class="flbl">Edition name</label><input placeholder="e.g. Chaturmas Pravachan 2026"/>'
-    +'<div class="grid g2" style="gap:12px;margin-top:12px;"><div><label class="flbl">Start date</label><input type="date" value="2026-10-10"/></div><div><label class="flbl">End date</label><input type="date" value="2027-04-08"/></div></div>'
-    +'<label class="flbl" style="margin-top:12px;">Venue for this edition</label><input value="'+community.venue+'"/>'
+    +'<label class="flbl">Edition name</label><input id="ne-name" placeholder="e.g. Chaturmas Pravachan 2026"/>'
+    +'<div class="grid g2" style="gap:12px;margin-top:12px;"><div><label class="flbl">Start date</label><input id="ne-start" type="date"/></div><div><label class="flbl">End date</label><input id="ne-end" type="date"/></div></div>'
+    +'<label class="flbl" style="margin-top:12px;">Venue for this edition</label><input id="ne-venue" value="'+(community.venue||'')+'"/>'
     +'<div class="hint" style="margin-top:8px;">Tip: a 180-day edition gives you 180 days of schedule to fill — add functions to any day.</div>'
-    +'<button class="btn btn-p btn-full" style="margin-top:16px;" onclick="toast(\'New edition created\')">'+sIcon('plus')+'Create edition</button>'
+    +'<button class="btn btn-p btn-full" style="margin-top:16px;" onclick="createEdition()">'+sIcon('plus')+'Create edition</button>'
   +'</div></div>';
 }
 /*__MORE__*/

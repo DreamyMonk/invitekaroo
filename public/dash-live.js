@@ -138,6 +138,51 @@
     try { await window.__fb.updateCommunity(__cid, data); toast('Community profile saved · updated across the app', true); await window.__reload(); } catch (e) { toast('Error: ' + (e.message || e)); }
   };
 
+  // ── Logo / cover upload (downscaled to a small JPEG data URL, stored on the community doc) ──
+  function downscale(file, maxW) {
+    return new Promise(function (res, rej) {
+      var fr = new FileReader();
+      fr.onload = function () {
+        var img = new Image();
+        img.onload = function () {
+          var w = img.width, h = img.height, scale = Math.min(1, maxW / w);
+          var cw = Math.round(w * scale), ch = Math.round(h * scale);
+          var cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+          cv.getContext('2d').drawImage(img, 0, 0, cw, ch);
+          res(cv.toDataURL('image/jpeg', 0.82));
+        };
+        img.onerror = rej; img.src = fr.result;
+      };
+      fr.onerror = rej; fr.readAsDataURL(file);
+    });
+  }
+  window.uploadImg = async function (input, kind) {
+    var file = input && input.files && input.files[0]; if (!file) return;
+    try {
+      var url = await downscale(file, kind === 'logo' ? 256 : 1000);
+      // instant visual feedback on the tile
+      var tile = $(kind + '-tile');
+      if (tile) { tile.style.background = '#fff center/cover no-repeat url("' + url + '")'; if (kind === 'cover') { tile.style.border = '1.5px solid var(--bd2)'; tile.innerHTML = '<input type="file" accept="image/*" style="display:none" onchange="uploadImg(this,\'cover\')"/>'; } else { tile.innerHTML = '<input type="file" accept="image/*" style="display:none" onchange="uploadImg(this,\'logo\')"/>'; } }
+      var data = {}; data[kind] = url;
+      await window.__fb.updateCommunity(__cid, data);
+      if (typeof community !== 'undefined' && community) community[kind] = url;
+      toast((kind === 'logo' ? 'Logo' : 'Cover photo') + ' updated · shown across the app', true);
+    } catch (e) { toast('Upload failed: ' + (e.message || e)); }
+  };
+
+  // ── Create / update the active edition ──
+  window.createEdition = async function () {
+    var g = function (id) { var e = $(id); return e ? e.value : ''; };
+    var name = g('ne-name').trim(), sv = g('ne-start'), ev = g('ne-end'), venue = g('ne-venue').trim();
+    if (!name) { toast('Enter an edition name'); return; }
+    if (!sv || !ev) { toast('Pick start and end dates'); return; }
+    var sd = new Date(sv), ed = new Date(ev);
+    var days = Math.max(1, Math.round((ed - sd) / 86400000) + 1);
+    var data = { editionLabel: name, editionStart: sv, editionEnd: ev, editionDays: days };
+    if (venue) data.venue = venue;
+    try { await window.__fb.updateCommunity(__cid, data); toast('Edition “' + name + '” created', true); await window.__reload(); } catch (e) { toast('Error: ' + (e.message || e)); }
+  };
+
   // ── Rewards ──
   window.saveGift = async function (id) {
     var s = subscribers.filter(function (x) { return x.id === id; })[0]; if (!s) return;
