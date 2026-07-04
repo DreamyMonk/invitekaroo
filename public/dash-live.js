@@ -182,14 +182,24 @@
   if (_trc) window.toggleRemCh = function (id, ch) { _trc(id, ch); persistRules(); };
   if (_sra) window.saveRemAuto = function () { _sra(); persistRules(); };
 
-  // Keep the topbar "Today · …" real on the Overview (nav() would blank it).
-  var _nav = window.nav;
-  if (_nav) window.nav = function (id) {
-    _nav(id);
-    if (id === 'overview') {
-      var t = new Date(), e = $('tb-s');
-      if (e) e.textContent = 'Today · ' + WD[t.getDay()] + ', ' + t.getDate() + ' ' + MONTHL[t.getMonth()] + ' ' + t.getFullYear();
-    }
+  // Fault-tolerant nav: a throw in one view's render must NOT leave the old view
+  // stuck (that's why clicking a menu item "did nothing"). Render into #view
+  // inside try/catch so the view always changes and errors surface.
+  window.nav = function (id) {
+    current = id;
+    var cfg = (NAVCFG.filter(function (x) { return x.id === id; })[0]) || { t: id, s: '' };
+    var tt = $('tb-t'); if (tt) tt.textContent = cfg.t;
+    var ts = $('tb-s'); if (ts) ts.textContent = cfg.s;
+    buildNav();
+    var v = $('view');
+    var map = { overview: vOverview, schedule: vSchedule, community: vCommunity, editions: vEditions, subscribers: vSubscribers, attendance: vAttendance, analytics: vAnalytics, rsvp: vRSVP, donations: vDonations, rewards: vRewards, reminders: vReminders, access: vAccess, settings: vSettings };
+    var fn = map[id], html = '';
+    try { html = fn ? fn() : ''; }
+    catch (e) { console.error('view ' + id + ' render error:', e); html = '<div class="card"><div class="empty"><div class="t">Couldn’t render this view</div><div class="s">' + ((e && e.message) ? e.message : e) + '</div></div></div>'; }
+    if (v) v.innerHTML = '<div class="view-in">' + html + '</div>';
+    var vw = document.querySelector('.view'); if (vw) vw.scrollTop = 0;
+    if (window._afterHooks) { try { window._afterHooks(id); } catch (e) { console.error('afterHooks ' + id, e); } }
+    if (id === 'overview' && ts) { var t = new Date(); ts.textContent = 'Today · ' + WD[t.getDay()] + ', ' + t.getDate() + ' ' + MONTHL[t.getMonth()] + ' ' + t.getFullYear(); }
   };
 
   // Auto-enter if already signed in (session persists)

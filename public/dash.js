@@ -1025,8 +1025,8 @@ function vDonations(){
   +'<div class="grid g4" style="margin-bottom:18px;">'
     +miniKpi('rupee','var(--in1)','var(--in)',money(total),'Total · Edition 2')
     +miniKpi('users','var(--t1)','var(--t7)',donations.length,'Contributors')
-    +miniKpi('trend','var(--ok1)','#16A34A',money(Math.round(total/donations.length)),'Avg donation')
-    +miniKpi('award','var(--g1)','var(--g5)',subName(top.sub).split(' ')[0],'Top donor')
+    +miniKpi('trend','var(--ok1)','#16A34A',money(donations.length?Math.round(total/donations.length):0),'Avg donation')
+    +miniKpi('award','var(--g1)','var(--g5)',(top?(subName(top.sub).split(' ')[0]||'—'):'—'),'Top donor')
   +'</div>'
   +'<div class="card" style="padding:0;overflow:hidden;">'
     +'<div class="card-h" style="padding:16px;margin:0;"><div class="ttl">'+sIcon('rupee')+'Donation ledger</div><div style="display:flex;gap:8px;"><button class="btn btn-s btn-sm" onclick="exportDonations()">'+sIcon('layers')+'Export XLS</button><button class="btn btn-p btn-sm" onclick="addDonationModal()">'+sIcon('plus')+'Record donation</button></div></div>'
@@ -1058,7 +1058,7 @@ function exportSubscribers(){
 /* ═══════════════ VIEW: REWARDS ═══════════════ */
 function vRewards(){
   var rank=subscribers.slice().sort(function(a,b){return b.attended-a.attended;});
-  var top=rank[0],least=rank[rank.length-1];var mx=rank[0].attended||1;
+  var top=rank[0]||{name:'—',attended:0,family:''},least=rank[rank.length-1]||top;var mx=(rank[0]&&rank[0].attended)||1;
   var bars=rank.map(function(s,i){var w=Math.round(s.attended/mx*100);
     return '<div style="display:flex;align-items:center;gap:9px;margin-bottom:9px;cursor:pointer;" onclick="openSub('+s.id+')">'
       +'<div style="width:16px;font-family:var(--fm);font-weight:700;font-size:.72rem;color:'+(i===0?'var(--g4)':'var(--ink4)')+';">'+(i+1)+'</div>'
