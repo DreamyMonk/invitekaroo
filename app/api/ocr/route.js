@@ -68,7 +68,9 @@ export async function POST(req) {
       method: "POST",
       headers: auth,
       body: JSON.stringify({
-        model: "mistral-medium-latest",
+        // Small 3.2 is multimodal + fast + cheap; with the image + OCR text + a
+        // strong prompt it's accurate here. Bump to medium/large only if needed.
+        model: "mistral-small-latest",
         temperature: 0,
         response_format: { type: "json_object" },
         messages: [
