@@ -198,15 +198,26 @@
   window.uploadImg = async function (input, kind) {
     var file = input && input.files && input.files[0]; if (!file) return;
     try {
-      var url = await downscale(file, kind === 'logo' ? 256 : 1000);
-      // instant visual feedback on the tile
+      busy(true, 'Uploading…');
+      var dataUrl = await downscale(file, kind === 'logo' ? 400 : 1400);
+      // Upload to Cloudflare R2 (server route) → returns a public media URL.
+      var res = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: dataUrl, folder: 'community/' + (__cid || 'x') + '/' + kind, ext: 'jpg' }),
+      });
+      var j = await res.json();
+      busy(false);
+      if (!j || !j.ok || !j.url) { toast('Upload failed: ' + ((j && j.error) || res.status)); return; }
+      var url = j.url;
+      // Visual feedback on the tile.
       var tile = $(kind + '-tile');
       if (tile) { tile.style.background = '#fff center/cover no-repeat url("' + url + '")'; if (kind === 'cover') { tile.style.border = '1.5px solid var(--bd2)'; tile.innerHTML = '<input type="file" accept="image/*" style="display:none" onchange="uploadImg(this,\'cover\')"/>'; } else { tile.innerHTML = '<input type="file" accept="image/*" style="display:none" onchange="uploadImg(this,\'logo\')"/>'; } }
       var data = {}; data[kind] = url;
       await window.__fb.updateCommunity(__cid, data);
       if (typeof community !== 'undefined' && community) community[kind] = url;
       toast((kind === 'logo' ? 'Logo' : 'Cover photo') + ' updated · shown across the app', true);
-    } catch (e) { toast('Upload failed: ' + (e.message || e)); }
+    } catch (e) { busy(false); toast('Upload failed: ' + (e.message || e)); }
   };
 
   // ── Create / update the active edition ──
