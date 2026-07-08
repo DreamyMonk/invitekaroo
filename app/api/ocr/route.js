@@ -45,13 +45,19 @@ export async function POST(req) {
       "Return ONLY a JSON object with these keys:\n" +
       "- title: the event name (for a wedding, the couple's names + ' Wedding').\n" +
       "- type: exactly one of wedding | meeting | birthday | appointment | travel | other.\n" +
-      "- date: the EVENT date as YYYY-MM-DD. If only day+month are shown, use the year that makes it upcoming relative to today (" +
+      "- date: the EVENT (start) date as YYYY-MM-DD. If only day+month are shown, use the year that makes it upcoming relative to today (" +
       today +
       "). Ignore any 'RSVP by' date. Empty string if truly unknown.\n" +
+      "- endDate: the last day as YYYY-MM-DD if it's a multi-day event, else same as date.\n" +
       "- time: the EVENT start time as 24-hour HH:MM (ignore RSVP/contact times). Empty string if unknown.\n" +
       "- venue: the event place/hall/address. Empty string if unknown.\n" +
-      "- host: the organiser or, for weddings, the couple/families. Empty string if unknown.\n" +
+      "- host: the host/contact PHONE NUMBER printed on the card (with country code if shown), or empty string.\n" +
       "- description: one short line summarising the event, or empty string.\n" +
+      "For WEDDINGS also fill (empty strings/array otherwise):\n" +
+      "- bride: the bride's given name only.\n" +
+      "- groom: the groom's given name only.\n" +
+      "- family: the families text if shown (e.g. 'Das & Singh Families').\n" +
+      "- functions: array of each ceremony/function listed (Haldi, Mehndi, Sangeet, Wedding, Reception, etc.), each an object {name, date (YYYY-MM-DD), time (24h HH:MM)}. Use [] if none are individually listed.\n" +
       "Never invent details that aren't on the card. Output valid JSON only.";
 
     const userContent = [
