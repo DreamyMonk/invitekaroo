@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 
-// AI Scan for the app: OCR an invitation-card image with Mistral, then have a
-// small chat model turn the extracted text into structured event fields.
+// AI Scan for the app. Two stages for accuracy:
+//   1) Mistral OCR reads the card → exact text (great at spelling dates/names).
+//   2) A VISION model (mistral-medium, multimodal) sees the ACTUAL image + the
+//      OCR text and returns structured event fields. Seeing the layout fixes the
+//      "which line is the title vs date vs venue" mis-mapping that plain
+//      text-parsing gets wrong.
 // Requires MISTRAL_API_KEY in the Vercel env.
 export async function POST(req) {
   try {
@@ -15,51 +19,71 @@ export async function POST(req) {
     }
     const auth = { "Content-Type": "application/json", Authorization: `Bearer ${key}` };
 
-    // 1) OCR the invitation image → markdown text.
-    const ocrRes = await fetch("https://api.mistral.ai/v1/ocr", {
-      method: "POST",
-      headers: auth,
-      body: JSON.stringify({
-        model: "mistral-ocr-latest",
-        document: { type: "image_url", image_url: image },
-      }),
-    });
-    const ocr = await ocrRes.json();
-    if (!ocrRes.ok) {
-      return NextResponse.json({ ok: false, error: ocr?.message || "OCR request failed" }, { status: 502 });
-    }
-    const markdown = (ocr.pages || []).map((p) => p.markdown || "").join("\n").trim();
-    if (!markdown) {
-      return NextResponse.json({ ok: false, error: "Couldn't read any text on the card" }, { status: 422 });
+    // 1) OCR the invitation image → markdown text (best-effort; non-fatal).
+    let markdown = "";
+    try {
+      const ocrRes = await fetch("https://api.mistral.ai/v1/ocr", {
+        method: "POST",
+        headers: auth,
+        body: JSON.stringify({
+          model: "mistral-ocr-latest",
+          document: { type: "image_url", image_url: image },
+        }),
+      });
+      if (ocrRes.ok) {
+        const ocr = await ocrRes.json();
+        markdown = (ocr.pages || []).map((p) => p.markdown || "").join("\n").trim();
+      }
+    } catch (_) {
+      // OCR failed — the vision model can still read the image directly.
     }
 
-    // 2) Structure the text into event fields.
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+    const system =
+      "You extract event details from an invitation card. You are given the card IMAGE and (maybe) its OCR text. " +
+      "Read the card's layout to decide which text is the event name, the date, the start time, and the venue. " +
+      "Return ONLY a JSON object with these keys:\n" +
+      "- title: the event name (for a wedding, the couple's names + ' Wedding').\n" +
+      "- type: exactly one of wedding | meeting | birthday | appointment | travel | other.\n" +
+      "- date: the EVENT date as YYYY-MM-DD. If only day+month are shown, use the year that makes it upcoming relative to today (" +
+      today +
+      "). Ignore any 'RSVP by' date. Empty string if truly unknown.\n" +
+      "- time: the EVENT start time as 24-hour HH:MM (ignore RSVP/contact times). Empty string if unknown.\n" +
+      "- venue: the event place/hall/address. Empty string if unknown.\n" +
+      "- host: the organiser or, for weddings, the couple/families. Empty string if unknown.\n" +
+      "- description: one short line summarising the event, or empty string.\n" +
+      "Never invent details that aren't on the card. Output valid JSON only.";
+
+    const userContent = [
+      {
+        type: "text",
+        text:
+          "Extract the event details from this invitation." +
+          (markdown ? "\n\nOCR text of the card:\n" + markdown : ""),
+      },
+      { type: "image_url", image_url: image },
+    ];
+
     const chatRes = await fetch("https://api.mistral.ai/v1/chat/completions", {
       method: "POST",
       headers: auth,
       body: JSON.stringify({
-        model: "mistral-small-latest",
+        model: "mistral-medium-latest",
         temperature: 0,
         response_format: { type: "json_object" },
         messages: [
-          {
-            role: "system",
-            content:
-              "You extract event details from the OCR text of an invitation card. Return ONLY a JSON object with these keys: " +
-              "title (short event name), " +
-              "type (exactly one of: wedding, meeting, birthday, appointment, travel, other), " +
-              "date (YYYY-MM-DD, or \"\" if unknown), " +
-              "time (24-hour HH:MM, or \"\" if unknown), " +
-              "venue (place/address, or \"\"), " +
-              "host (organizer, host, or couple names, or \"\"), " +
-              "description (one short line, or \"\"). " +
-              "Infer the current or next plausible year if only a day/month is given. For weddings set title to the couple's names + \" Wedding\". Never invent details that aren't implied by the text.",
-          },
-          { role: "user", content: markdown },
+          { role: "system", content: system },
+          { role: "user", content: userContent },
         ],
       }),
     });
     const chat = await chatRes.json();
+    if (!chatRes.ok) {
+      return NextResponse.json(
+        { ok: false, error: chat?.message || chat?.error?.message || "Extraction failed" },
+        { status: 502 },
+      );
+    }
     let fields = {};
     try {
       fields = JSON.parse(chat?.choices?.[0]?.message?.content || "{}");
