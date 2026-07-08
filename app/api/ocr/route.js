@@ -50,7 +50,9 @@ export async function POST(req) {
       "). Ignore any 'RSVP by' date. Empty string if truly unknown.\n" +
       "- endDate: the last day as YYYY-MM-DD if it's a multi-day event, else same as date.\n" +
       "- time: the EVENT start time as 24-hour HH:MM (ignore RSVP/contact times). Empty string if unknown.\n" +
-      "- venue: the event place/hall/address. Empty string if unknown.\n" +
+      "- venue: the main location — always fill it if the card implies one. For travel use the destination (e.g. 'Guwahati'); " +
+      "for an appointment the clinic/hospital/office; for a meeting the meeting place/room; for a birthday/party the venue/hall; " +
+      "for a wedding the venue/hall. Empty string only if truly absent.\n" +
       "- host: the host/contact PHONE NUMBER printed on the card (with country code if shown), or empty string.\n" +
       "- description: one short line summarising the event, or empty string.\n" +
       "For WEDDINGS also fill (empty strings/array otherwise):\n" +
