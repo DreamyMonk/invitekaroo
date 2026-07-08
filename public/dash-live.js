@@ -312,4 +312,40 @@
   } else {
     hideVeil();
   }
+
+  // ── OTP boxes: digit-only + numeric keypad, auto-advance on type, and
+  //    backspace jumps to (and clears) the previous box one by one. ──
+  function wireOtp() {
+    var boxes = document.querySelectorAll('.lg-otp input');
+    if (!boxes.length) return;
+    Array.prototype.forEach.call(boxes, function (b, i) {
+      b.addEventListener('input', function () {
+        b.value = (b.value || '').replace(/[^0-9]/g, '').slice(0, 1);
+        if (b.value && i < boxes.length - 1) boxes[i + 1].focus();
+      });
+      b.addEventListener('keydown', function (e) {
+        if (e.key === 'Backspace') {
+          if (!b.value && i > 0) {
+            boxes[i - 1].value = '';
+            boxes[i - 1].focus();
+            e.preventDefault();
+          }
+        } else if (e.key === 'ArrowLeft' && i > 0) {
+          boxes[i - 1].focus(); e.preventDefault();
+        } else if (e.key === 'ArrowRight' && i < boxes.length - 1) {
+          boxes[i + 1].focus(); e.preventDefault();
+        }
+      });
+      b.addEventListener('paste', function (e) {
+        var t = ((e.clipboardData || window.clipboardData).getData('text') || '').replace(/[^0-9]/g, '');
+        if (t.length > 1) {
+          e.preventDefault();
+          for (var k = 0; k < boxes.length; k++) boxes[k].value = t[k] || '';
+          var last = Math.min(t.length, boxes.length) - 1;
+          if (last >= 0) boxes[last].focus();
+        }
+      });
+    });
+  }
+  wireOtp();
 })();
