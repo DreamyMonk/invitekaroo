@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sendWhatsAppBulk } from "@/lib/whatsapp";
 
 // Sends an FCM push to every app install subscribed to the "programs" topic.
 // Requires the FIREBASE_SERVICE_ACCOUNT env var on Vercel: the full JSON of a
@@ -6,7 +7,7 @@ import { NextResponse } from "next/server";
 // → Generate new private key), pasted as one line.
 export async function POST(req) {
   try {
-    const { title, body, cid } = await req.json();
+    const { title, body, cid, wa } = await req.json();
     if (!title) {
       return NextResponse.json({ ok: false, error: "title required" }, { status: 400 });
     }
@@ -41,7 +42,23 @@ export async function POST(req) {
       apns: { payload: { aps: { sound: "default" } } },
       data: { type: "program" },
     });
-    return NextResponse.json({ ok: true, id });
+
+    // Also fan out a WhatsApp template to this community's subscribers.
+    let waResult = null;
+    if (wa && wa.template && cid) {
+      try {
+        const subs = await admin.firestore().collection("communities").doc(cid).collection("subscribers").get();
+        const numbers = subs.docs.map((d) => d.data().mobile).filter(Boolean);
+        waResult = await sendWhatsAppBulk(numbers, () => ({
+          template: wa.template,
+          language: wa.language || "en",
+          bodyVars: wa.bodyVars || [],
+        }));
+      } catch (e) {
+        waResult = { error: String(e?.message || e) };
+      }
+    }
+    return NextResponse.json({ ok: true, id, wa: waResult });
   } catch (e) {
     return NextResponse.json({ ok: false, error: String(e?.message || e) }, { status: 500 });
   }

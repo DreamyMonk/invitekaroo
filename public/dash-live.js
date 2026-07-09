@@ -127,7 +127,7 @@
     var p = { title: name, date: $('m-date').value || todayIso(), time: (typeof time12==='function'?time12($('m-time').value):($('m-time').value)) || '9:00 AM', dur: $('m-dur') ? $('m-dur').value : '', venue: $('m-venue') ? $('m-venue').value : '', description: $('m-desc') ? $('m-desc').value : '', youtube: $('m-yt') ? $('m-yt').value : '', published: true, status: 'scheduled' };
     try {
       if (typeof editingFn !== 'undefined' && editingFn) { var did = fnDocId(editingFn); if (did) await window.__fb.updateProgram(did, p); toast('Event updated · subscribers re-notified', true); }
-      else { await window.__fb.addProgram(__community, p); window.__fb.pushNotify('New programme: ' + name, (__community.name || '') + ' · ' + p.date + (p.time ? ' · ' + p.time : ''), __cid); toast('Event created · pushed to subscribers + added to their calendar', true); }
+      else { await window.__fb.addProgram(__community, p); window.__fb.pushNotify('New programme: ' + name, (__community.name || '') + ' · ' + p.date + (p.time ? ' · ' + p.time : ''), __cid, { template: 'new_programme_alert', bodyVars: [(__community.name || 'the community'), name, (p.date + (p.time ? ' · ' + p.time : '')), (p.venue || __community.venue || '—')] }); toast('Event created · pushed to subscribers + added to their calendar', true); }
       closeModal(); if (p.date) schedSel = p.date; await window.__reload();
     } catch (e) { toast('Error: ' + (e.message || e)); }
   };
@@ -158,7 +158,7 @@
     try {
       var when = new Date();
       await window.__fb.addSub(__cid, 'reminders', { title: 'Custom alert', message: o.text || '', sentAt: when.getDate() + ' ' + MONTHS[when.getMonth()] + ' ' + when.getFullYear() });
-      window.__fb.pushNotify('Update from ' + (__community.name || 'your community'), o.text || '', __cid);
+      window.__fb.pushNotify('Update from ' + (__community.name || 'your community'), o.text || '', __cid, { template: 'community_update', bodyVars: [(__community.name || 'your community'), (o.text || '')] });
       toast('Alert sent to subscribers', true); await window.__reload();
     } catch (e) { toast('Error: ' + (e.message || e)); }
   };
