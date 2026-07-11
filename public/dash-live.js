@@ -122,12 +122,25 @@
   // ── Mutation overrides (persist to Firestore, then reload+render) ──
   function fnDocId(id) { var x = findFn(id); return x && x.f && x.f._docId; }
 
+  // Build an honest toast from the real /api/notify result. Previously these
+  // sends were fire-and-forget with a hard-coded "sent" toast, so a failing
+  // push/WhatsApp (e.g. server env not set → 500) looked like success. Now we
+  // surface exactly what happened so delivery problems are visible.
+  function pushToastMsg(prefix, r, cid) {
+    if (!r || r.ok === false) return prefix + ' saved — but PUSH FAILED: ' + ((r && r.error) || 'no response from /api/notify');
+    var parts = [prefix + ' · push sent'];
+    if (!cid) parts.push('⚠ no community id (nobody subscribed to this topic)');
+    if (r.wa && typeof r.wa.sent === 'number') parts.push('WhatsApp ' + r.wa.sent + '/' + r.wa.total);
+    else if (r.wa && r.wa.error) parts.push('WhatsApp FAILED: ' + r.wa.error);
+    return parts.join(' · ');
+  }
+
   window.saveFn = async function () {
     var name = ($('m-name').value || '').trim(); if (!name) { toast('Enter an event name'); return; }
     var p = { title: name, date: $('m-date').value || todayIso(), time: (typeof time12==='function'?time12($('m-time').value):($('m-time').value)) || '9:00 AM', dur: $('m-dur') ? $('m-dur').value : '', venue: $('m-venue') ? $('m-venue').value : '', description: $('m-desc') ? $('m-desc').value : '', youtube: $('m-yt') ? $('m-yt').value : '', published: true, status: 'scheduled' };
     try {
       if (typeof editingFn !== 'undefined' && editingFn) { var did = fnDocId(editingFn); if (did) await window.__fb.updateProgram(did, p); toast('Event updated · subscribers re-notified', true); }
-      else { await window.__fb.addProgram(__community, p); window.__fb.pushNotify('New programme: ' + name, (__community.name || '') + ' · ' + p.date + (p.time ? ' · ' + p.time : ''), __cid, { template: 'new_programme_alert', bodyVars: [(__community.name || 'the community'), name, (p.date + (p.time ? ' · ' + p.time : '')), (p.venue || __community.venue || '—')] }); toast('Event created · pushed to subscribers + added to their calendar', true); }
+      else { await window.__fb.addProgram(__community, p); var _r = await window.__fb.pushNotify('New programme: ' + name, (__community.name || '') + ' · ' + p.date + (p.time ? ' · ' + p.time : ''), __cid, { template: 'new_programme_alert', bodyVars: [(__community.name || 'the community'), name, (p.date + (p.time ? ' · ' + p.time : '')), (p.venue || __community.venue || '—')] }); toast(pushToastMsg('Event created', _r, __cid), !(_r && _r.ok === false)); }
       closeModal(); if (p.date) schedSel = p.date; await window.__reload();
     } catch (e) { toast('Error: ' + (e.message || e)); }
   };
@@ -158,8 +171,8 @@
     try {
       var when = new Date();
       await window.__fb.addSub(__cid, 'reminders', { title: 'Custom alert', message: o.text || '', sentAt: when.getDate() + ' ' + MONTHS[when.getMonth()] + ' ' + when.getFullYear() });
-      window.__fb.pushNotify('Update from ' + (__community.name || 'your community'), o.text || '', __cid, { template: 'community_update', bodyVars: [(__community.name || 'your community'), (o.text || '')] });
-      toast('Alert sent to subscribers', true); await window.__reload();
+      var _r = await window.__fb.pushNotify('Update from ' + (__community.name || 'your community'), o.text || '', __cid, { template: 'community_update', bodyVars: [(__community.name || 'your community'), (o.text || '')] });
+      toast(pushToastMsg('Alert', _r, __cid), !(_r && _r.ok === false)); await window.__reload();
     } catch (e) { toast('Error: ' + (e.message || e)); }
   };
 
