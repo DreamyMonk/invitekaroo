@@ -130,7 +130,7 @@ async function loadAll(uid) {
       .map((a) => subscribers.findIndex((s) => (s.name || "").toLowerCase() === (a.name || "").toLowerCase()) + 1).filter((x) => x > 0);
   });
 
-  const donations = dons.map((d, i) => ({ id: d.id, no: i + 1, sub: subscribers.findIndex((s) => (s.name || "").toLowerCase() === (d.donor || "").toLowerCase()) + 1 || 0, donor: d.donor || "", amt: Number(d.amount || 0), date: d.at || "", mode: d.mode || "—", purpose: d.note || "General" }));
+  const donations = dons.map((d, i) => ({ id: d.id, no: i + 1, sub: subscribers.findIndex((s) => (s.name || "").toLowerCase() === (d.donor || "").toLowerCase()) + 1 || 0, donor: d.donor || "", amt: Number(d.amount || 0), date: d.at || "", mode: d.mode || "—", purpose: d.note || "General", email: d.email || "" }));
   const reminders = rems.map((r, i) => ({ id: r.id, kind: "reminder", fn: r.title || "Alert", when: r.sentAt || "", msg: r.message || "", ch: ["app"], reach: subscribers.length, status: "sent" }));
   const teamRows = team.map((t, i) => ({ id: t.id, name: t.name || "", email: t.email || "", role: t.role || "Viewer", status: t.status || "active", last: "" }));
 
@@ -165,6 +165,12 @@ export default function Page() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ to, template, language: language || "en", bodyVars: bodyVars || [] }),
+        }).then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) })),
+      sendReceipt: (payload) =>
+        fetch("/api/receipt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
         }).then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) })),
       serverTs: serverTimestamp,
     };

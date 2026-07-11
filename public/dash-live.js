@@ -179,8 +179,18 @@
     if (typeof donPickId === 'undefined' || !donPickId) { toast('Select a subscriber first'); return; }
     var amt = parseInt(($('d-amt') && $('d-amt').value) || '0', 10) || 0; if (!amt) { toast('Enter an amount'); return; }
     var s = subscribers.filter(function (x) { return x.id === donPickId; })[0];
-    var data = { donor: s ? s.name : '', amount: amt, at: ($('d-date') && $('d-date').value) || '', mode: ($('d-mode') && $('d-mode').value) || 'UPI', note: ($('d-purp') && $('d-purp').value) || 'General' };
-    try { await window.__fb.addSub(__cid, 'donations', data); toast('Donation recorded · receipt emailed', true); closeModal(); await window.__reload(); } catch (e) { toast('Error: ' + (e.message || e)); }
+    var email = (($('d-email') && $('d-email').value) || '').trim();
+    var data = { donor: s ? s.name : '', amount: amt, at: ($('d-date') && $('d-date').value) || '', mode: ($('d-mode') && $('d-mode').value) || 'UPI', note: ($('d-purp') && $('d-purp').value) || 'General', email: email };
+    try {
+      await window.__fb.addSub(__cid, 'donations', data);
+      toast('Donation recorded', true);
+      closeModal();
+      // Auto-email the PDF receipt when the donor's email was captured.
+      if (email) {
+        await sendDonationReceipt({ donor: data.donor, amt: amt, date: (typeof fmtIsoDM === 'function' && data.at) ? fmtIsoDM(data.at) : data.at, mode: data.mode, purpose: data.note, no: (typeof donations !== 'undefined' ? donations.length + 1 : 1) }, email);
+      }
+      await window.__reload();
+    } catch (e) { toast('Error: ' + (e.message || e)); }
   };
 
   // Reminders composer → real send (addSub + push)
@@ -378,6 +388,31 @@
     var commName = (__community && __community.name) || 'your community';
     var text = 'Thank you for your generous donation of ₹' + (d.amt || 0) + ' to ' + commName + '. 🙏';
     try { var r = await window.__fb.sendWhatsApp(phone, 'community_update', 'en', [commName, text]); toast(r && r.ok ? 'WhatsApp thank-you sent to ' + (s.name || 'donor') : 'WhatsApp failed: ' + ((r && r.error) || 'check template approval'), !!(r && r.ok)); } catch (e) { toast('Error: ' + (e.message || e)); }
+  };
+  // Email a PDF-invoice donation receipt via Resend (was a fake toast).
+  async function sendDonationReceipt(d, toEmail) {
+    var email = (toEmail || d.email || '').trim();
+    if (!email) { toast('No donor email on file — add one on the donation to email the receipt'); return { ok: false }; }
+    var commName = (__community && __community.name) || 'your community';
+    var payload = {
+      to: email,
+      donorName: d.donor || 'Donor',
+      receiptNo: (typeof receiptNo === 'function' ? receiptNo(d) : ('IK/2026/' + String(d.no || 1).padStart(4, '0'))),
+      amount: d.amt || d.amount || 0,
+      date: d.date || d.at || '',
+      mode: d.mode || '-',
+      purpose: d.purpose || d.note || 'General',
+      communityName: commName,
+    };
+    try {
+      var r = await window.__fb.sendReceipt(payload);
+      toast(r && r.ok ? 'Receipt emailed to ' + email : 'Receipt email failed: ' + ((r && r.error) || 'unknown'), !!(r && r.ok));
+      return r;
+    } catch (e) { toast('Error: ' + (e.message || e)); return { ok: false }; }
+  }
+  window.emailReceipt = function (id) {
+    var d = findDon(id); if (!d) return;
+    return sendDonationReceipt(d);
   };
 
   // ── Reminder automation rules → persist to the community doc ──
