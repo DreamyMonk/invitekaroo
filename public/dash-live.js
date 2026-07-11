@@ -139,7 +139,7 @@
     var name = ($('m-name').value || '').trim(); if (!name) { toast('Enter an event name'); return; }
     var p = { title: name, date: $('m-date').value || todayIso(), time: (typeof time12==='function'?time12($('m-time').value):($('m-time').value)) || '9:00 AM', dur: $('m-dur') ? $('m-dur').value : '', venue: $('m-venue') ? $('m-venue').value : '', description: $('m-desc') ? $('m-desc').value : '', youtube: $('m-yt') ? $('m-yt').value : '', published: true, status: 'scheduled' };
     try {
-      if (typeof editingFn !== 'undefined' && editingFn) { var did = fnDocId(editingFn); if (did) await window.__fb.updateProgram(did, p); var _ru = await window.__fb.pushNotify('Update from ' + (__community.name || 'your community'), name + ' has been updated · ' + p.date + (p.time ? ' · ' + p.time : ''), __cid, null); toast(pushToastMsg('Event updated', _ru, __cid), !(_ru && _ru.ok === false)); }
+      if (typeof editingFn !== 'undefined' && editingFn) { var did = fnDocId(editingFn); if (did) await window.__fb.updateProgram(did, p); var _cn = (__community.name || 'your community'); var _line = name + ' has been updated · ' + p.date + (p.time ? ' · ' + p.time : ''); var _ru = await window.__fb.pushNotify('Update from ' + _cn, _line, __cid, { template: 'community_update', bodyVars: [_cn, _line] }); toast(pushToastMsg('Event updated', _ru, __cid), !(_ru && _ru.ok === false)); }
       else { await window.__fb.addProgram(__community, p); var _r = await window.__fb.pushNotify('New programme: ' + name, (__community.name || '') + ' · ' + p.date + (p.time ? ' · ' + p.time : ''), __cid, { template: 'new_programme_alert', bodyVars: [(__community.name || 'the community'), name, (p.date + (p.time ? ' · ' + p.time : '')), (p.venue || __community.venue || '—')] }); toast(pushToastMsg('Event created', _r, __cid), !(_r && _r.ok === false)); }
       closeModal(); if (p.date) schedSel = p.date; await window.__reload();
     } catch (e) { toast('Error: ' + (e.message || e)); }
@@ -157,7 +157,10 @@
           var x = findFn(id); var evName = (x && x.f && x.f.name) || 'An event';
           var verb = status === 'cancelled' ? 'cancelled' : status === 'postponed' ? 'postponed' : 'back on';
           var pfx = status === 'cancelled' ? 'Cancelled' : status === 'postponed' ? 'Postponed' : 'Reactivated';
-          var _r = await window.__fb.pushNotify('Update from ' + (__community.name || 'your community'), evName + ' has been ' + verb + '.', __cid, null);
+          var commName = (__community.name || 'your community');
+          var line = evName + ' has been ' + verb + '.';
+          // Push + WhatsApp fan-out (community_update template).
+          var _r = await window.__fb.pushNotify('Update from ' + commName, line, __cid, { template: 'community_update', bodyVars: [commName, line] });
           toast(pushToastMsg(pfx, _r, __cid), !(_r && _r.ok === false));
         } else {
           toast(msg, true);
