@@ -176,6 +176,33 @@
     } catch (e) { toast('Error: ' + (e.message || e)); }
   };
 
+  // "Send broadcast" composer → REAL send. The dash.js sendBroadcast() is a
+  // no-op stub: it only added a fake log row and toasted "Broadcast sent" while
+  // sending nothing. This override actually pushes to the community's FCM topic
+  // and/or fans out WhatsApp, honouring the In-app / WhatsApp channel toggles.
+  window.sendBroadcast = async function () {
+    var msgEl = document.getElementById('bc-msg');
+    var msg = ((msgEl && msgEl.value) || '').trim();
+    var appEl = document.getElementById('bc-app');
+    var waEl = document.getElementById('bc-wa');
+    var app = !!(appEl && appEl.classList.contains('on'));
+    var wa = !!(waEl && waEl.classList.contains('on'));
+    if (!app && !wa) { toast('Pick at least one channel'); return; }
+    if (!msg) { toast('Type a message first'); return; }
+    if (!__cid) { toast('No community loaded — reopen the dashboard'); return; }
+    var commName = (__community && __community.name) || 'your community';
+    try {
+      var when = new Date();
+      await window.__fb.addSub(__cid, 'reminders', { title: 'Announcement', message: msg, sentAt: when.getDate() + ' ' + MONTHS[when.getMonth()] + ' ' + when.getFullYear() });
+      var waPayload = wa ? { template: 'community_update', bodyVars: [commName, msg] } : null;
+      // 5th arg = whether to send the in-app push (false → WhatsApp only).
+      var _r = await window.__fb.pushNotify('Update from ' + commName, msg, __cid, waPayload, app);
+      toast(pushToastMsg('Broadcast', _r, __cid), !(_r && _r.ok === false));
+      if (msgEl) msgEl.value = '';
+      await window.__reload();
+    } catch (e) { toast('Error: ' + (e.message || e)); }
+  };
+
   // ── Live stats helpers (called by the reference render functions) ──
   window.subsFmt = function () { try { return Number(subscribers.length).toLocaleString('en-IN'); } catch (e) { return '0'; } };
   window.totalCheckins = function () { try { var n = 0; for (var k in attLog) n += attLog[k].length; return n; } catch (e) { return 0; } };

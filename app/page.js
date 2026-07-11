@@ -159,7 +159,7 @@ export default function Page() {
       updateSub: (cid, name, id, data) => updateSubDoc(cid, name, id, data),
       deleteSub: (cid, name, id) => deleteSubDoc(cid, name, id),
       updateCommunity: (cid, data) => updateCommunity(cid, data),
-      pushNotify: (t, b, cid, wa) => pushNotify(t, b, cid, wa),
+      pushNotify: (t, b, cid, wa, push) => pushNotify(t, b, cid, wa, push),
       serverTs: serverTimestamp,
     };
 

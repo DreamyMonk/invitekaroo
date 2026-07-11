@@ -7,13 +7,10 @@ import { sendWhatsAppBulk } from "@/lib/whatsapp";
 // → Generate new private key), pasted as one line.
 export async function POST(req) {
   try {
-    const { title, body, cid, wa } = await req.json();
+    const { title, body, cid, wa, push } = await req.json();
     if (!title) {
       return NextResponse.json({ ok: false, error: "title required" }, { status: 400 });
     }
-    // Scope the push to this community's subscribers only. Fall back to the
-    // legacy global topic if no community id was supplied.
-    const topic = cid ? `community_${cid}` : "programs";
     const raw = process.env.FIREBASE_SERVICE_ACCOUNT;
     if (!raw) {
       return NextResponse.json(
@@ -25,23 +22,30 @@ export async function POST(req) {
     if (!admin.apps.length) {
       admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)) });
     }
-    const id = await admin.messaging().send({
-      topic,
-      notification: { title, body: body || "" },
-      android: {
-        priority: "high",
-        notification: {
-          channelId: "ik_default",
-          sound: "default",
-          defaultSound: true,
-          notificationPriority: "PRIORITY_HIGH",
-          defaultVibrateTimings: true,
-          visibility: "PUBLIC",
+    // Send the FCM push unless the caller asked for WhatsApp-only (push:false).
+    // Scope to this community's subscribers; fall back to the legacy global
+    // topic only if no community id was supplied.
+    let id = null;
+    if (push !== false) {
+      const topic = cid ? `community_${cid}` : "programs";
+      id = await admin.messaging().send({
+        topic,
+        notification: { title, body: body || "" },
+        android: {
+          priority: "high",
+          notification: {
+            channelId: "ik_default",
+            sound: "default",
+            defaultSound: true,
+            notificationPriority: "PRIORITY_HIGH",
+            defaultVibrateTimings: true,
+            visibility: "PUBLIC",
+          },
         },
-      },
-      apns: { payload: { aps: { sound: "default" } } },
-      data: { type: "program" },
-    });
+        apns: { payload: { aps: { sound: "default" } } },
+        data: { type: "program" },
+      });
+    }
 
     // Also fan out a WhatsApp template to this community's subscribers.
     let waResult = null;
