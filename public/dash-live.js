@@ -322,6 +322,60 @@
       try { await window.__fb.deleteSub(__cid, 'team', m.id); toast(m.name + ' removed'); await window.__reload(); } catch (e) { toast('Error: ' + (e.message || e)); }
     });
   };
+  // Persist team-member suspend/reactivate (dash.js stub only flipped local state
+  // and lost it on reload).
+  window.memberSuspend = async function (id) {
+    var m = team.filter(function (x) { return x.id === id; })[0]; if (!m) return;
+    var next = m.status === 'suspended' ? 'active' : 'suspended';
+    try { await window.__fb.updateSub(__cid, 'team', id, { status: next }); closeDrawer(); toast(m.name + (next === 'suspended' ? ' suspended' : ' reactivated'), next !== 'suspended'); await window.__reload(); } catch (e) { toast('Error: ' + (e.message || e)); }
+  };
+  // Team invites are just a team record + email-OTP login — there is no separate
+  // invite email to "re-send". Tell the truth instead of faking it.
+  window.resendInvite = function (id) {
+    var m = team.filter(function (x) { return x.id === id; })[0]; if (!m) return;
+    toast(m.name + ' can sign in now at the host dashboard with ' + m.email + ' · email + OTP', true);
+  };
+
+  // ── Messaging specific subscribers (real WhatsApp send) ──
+  // In-app push can only target a whole community topic (no per-device tokens
+  // are stored), so targeted messages go out over WhatsApp; the app channel is
+  // reported honestly rather than faked.
+  async function sendMsgToSubs(recips, o) {
+    var commName = (__community && __community.name) || 'your community';
+    if (o.wa) {
+      var nums = recips.map(function (s) { return s.phone; }).filter(Boolean);
+      if (!nums.length) { toast('No mobile numbers on file for these subscribers'); }
+      else {
+        var okc = 0;
+        for (var i = 0; i < nums.length; i++) {
+          try { var r = await window.__fb.sendWhatsApp(nums[i], 'community_update', 'en', [commName, o.text]); if (r && r.ok) okc++; } catch (e) {}
+        }
+        toast('WhatsApp: ' + okc + '/' + nums.length + ' sent' + (okc < nums.length ? ' (check template approval)' : ''), okc > 0);
+      }
+    }
+    if (o.app && !o.wa) {
+      toast('In-app messages to selected subscribers aren’t supported yet — use “Send broadcast” to reach all, or WhatsApp for individuals.');
+    }
+  }
+  window.remindSub = function (id) {
+    var s = subscribers.filter(function (x) { return x.id === id; })[0]; if (!s) return;
+    openMsgModal(s.name + ' · ' + (s.phone || 'no number'), function (o) { return sendMsgToSubs([s], o); });
+  };
+  window.bulkMsg = function () {
+    var recips = subscribers.filter(function (s) { return selectedSubs[s.id]; });
+    if (!recips.length) return;
+    openMsgModal(recips.length + ' selected subscriber' + (recips.length === 1 ? '' : 's'), function (o) { clearSel(); return sendMsgToSubs(recips, o); });
+  };
+  // Donor thank-you over WhatsApp (was a fake toast).
+  window.waThankYou = async function (id) {
+    var d = findDon(id); if (!d) return;
+    var s = subscribers.filter(function (x) { return x.id === d.sub; })[0];
+    var phone = s && s.phone;
+    if (!phone) { toast('No mobile number on file for this donor'); return; }
+    var commName = (__community && __community.name) || 'your community';
+    var text = 'Thank you for your generous donation of ₹' + (d.amt || 0) + ' to ' + commName + '. 🙏';
+    try { var r = await window.__fb.sendWhatsApp(phone, 'community_update', 'en', [commName, text]); toast(r && r.ok ? 'WhatsApp thank-you sent to ' + (s.name || 'donor') : 'WhatsApp failed: ' + ((r && r.error) || 'check template approval'), !!(r && r.ok)); } catch (e) { toast('Error: ' + (e.message || e)); }
+  };
 
   // ── Reminder automation rules → persist to the community doc ──
   function persistRules() { try { window.__fb.updateCommunity(__cid, { reminderRules: reminderAutomation }); } catch (e) {} }

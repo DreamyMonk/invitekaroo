@@ -132,7 +132,7 @@ async function loadAll(uid) {
 
   const donations = dons.map((d, i) => ({ id: d.id, no: i + 1, sub: subscribers.findIndex((s) => (s.name || "").toLowerCase() === (d.donor || "").toLowerCase()) + 1 || 0, donor: d.donor || "", amt: Number(d.amount || 0), date: d.at || "", mode: d.mode || "—", purpose: d.note || "General" }));
   const reminders = rems.map((r, i) => ({ id: r.id, kind: "reminder", fn: r.title || "Alert", when: r.sentAt || "", msg: r.message || "", ch: ["app"], reach: subscribers.length, status: "sent" }));
-  const teamRows = team.map((t, i) => ({ id: t.id, name: t.name || "", email: t.email || "", role: t.role || "Viewer", status: "active", last: "" }));
+  const teamRows = team.map((t, i) => ({ id: t.id, name: t.name || "", email: t.email || "", role: t.role || "Viewer", status: t.status || "active", last: "" }));
 
   const hostName = community.name || "Host";
   const reminderAutomation = Array.isArray(community.reminderRules) && community.reminderRules.length ? community.reminderRules : null;
@@ -160,6 +160,12 @@ export default function Page() {
       deleteSub: (cid, name, id) => deleteSubDoc(cid, name, id),
       updateCommunity: (cid, data) => updateCommunity(cid, data),
       pushNotify: (t, b, cid, wa, push) => pushNotify(t, b, cid, wa, push),
+      sendWhatsApp: (to, template, language, bodyVars) =>
+        fetch("/api/whatsapp", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ to, template, language: language || "en", bodyVars: bodyVars || [] }),
+        }).then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) })),
       serverTs: serverTimestamp,
     };
 
