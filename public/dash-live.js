@@ -139,7 +139,7 @@
     var name = ($('m-name').value || '').trim(); if (!name) { toast('Enter an event name'); return; }
     var p = { title: name, date: $('m-date').value || todayIso(), time: (typeof time12==='function'?time12($('m-time').value):($('m-time').value)) || '9:00 AM', dur: $('m-dur') ? $('m-dur').value : '', venue: $('m-venue') ? $('m-venue').value : '', description: $('m-desc') ? $('m-desc').value : '', youtube: $('m-yt') ? $('m-yt').value : '', published: true, status: 'scheduled' };
     try {
-      if (typeof editingFn !== 'undefined' && editingFn) { var did = fnDocId(editingFn); if (did) await window.__fb.updateProgram(did, p); toast('Event updated · subscribers re-notified', true); }
+      if (typeof editingFn !== 'undefined' && editingFn) { var did = fnDocId(editingFn); if (did) await window.__fb.updateProgram(did, p); var _ru = await window.__fb.pushNotify('Update from ' + (__community.name || 'your community'), name + ' has been updated · ' + p.date + (p.time ? ' · ' + p.time : ''), __cid, null); toast(pushToastMsg('Event updated', _ru, __cid), !(_ru && _ru.ok === false)); }
       else { await window.__fb.addProgram(__community, p); var _r = await window.__fb.pushNotify('New programme: ' + name, (__community.name || '') + ' · ' + p.date + (p.time ? ' · ' + p.time : ''), __cid, { template: 'new_programme_alert', bodyVars: [(__community.name || 'the community'), name, (p.date + (p.time ? ' · ' + p.time : '')), (p.venue || __community.venue || '—')] }); toast(pushToastMsg('Event created', _r, __cid), !(_r && _r.ok === false)); }
       closeModal(); if (p.date) schedSel = p.date; await window.__reload();
     } catch (e) { toast('Error: ' + (e.message || e)); }
@@ -149,7 +149,21 @@
     openConfirm(confirmTitle, confirmBody, btnLabel, btnCls, async function () {
       var did = fnDocId(id); if (!did) return;
       var patch = { status: status }; if (status === 'ended' || status === 'cancelled') patch.published = false; if (status === 'scheduled') patch.published = true;
-      try { await window.__fb.updateProgram(did, patch); toast(msg, true); await window.__reload(); } catch (e) { toast('Error: ' + (e.message || e)); }
+      try {
+        await window.__fb.updateProgram(did, patch);
+        // Actually alert subscribers with an FCM push. 'ended' (turn off) is a
+        // silent hide, so it does not notify.
+        if (status !== 'ended') {
+          var x = findFn(id); var evName = (x && x.f && x.f.name) || 'An event';
+          var verb = status === 'cancelled' ? 'cancelled' : status === 'postponed' ? 'postponed' : 'back on';
+          var pfx = status === 'cancelled' ? 'Cancelled' : status === 'postponed' ? 'Postponed' : 'Reactivated';
+          var _r = await window.__fb.pushNotify('Update from ' + (__community.name || 'your community'), evName + ' has been ' + verb + '.', __cid, null);
+          toast(pushToastMsg(pfx, _r, __cid), !(_r && _r.ok === false));
+        } else {
+          toast(msg, true);
+        }
+        await window.__reload();
+      } catch (e) { toast('Error: ' + (e.message || e)); }
     });
   }
   window.postponeFn = function (id) { var x = findFn(id); statusChange(id, 'postponed', '', 'Postponed · subscribers alerted', 'Postpone this event?', '“' + x.f.name + '” will be marked postponed and subscribers notified.', 'Yes, postpone', 'btn-gold'); };
